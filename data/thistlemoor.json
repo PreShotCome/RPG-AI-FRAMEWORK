@@ -1,0 +1,112 @@
+{
+  "village": {
+    "name": "Thistlemoor",
+    "description": "A weathered settlement at the edge of the Ashfen lowlands. Thistlemoor is not thriving — it is enduring. The mill still turns, the forge still burns, and the constable still posts notices no one reads. Something is quietly wrong here, though no one agrees on what.",
+    "level_range": [1, 10],
+    "atmosphere": "Subdued and slightly tense. Villagers are polite but watchful. The road north is talked about only in hushed tones."
+  },
+  "npcs": [
+    {
+      "id": "brynn_the_herbalist",
+      "name": "Brynn Ashwick",
+      "role": "Herbalist",
+      "appearance": "A compact woman in her fifties with dirt-stained hands and a pouch belt so full of dried cuttings it rattles when she walks. Her left eye is slightly clouded from an old fever, but she tracks you with the right one like a hawk watching a field mouse.",
+      "personality": "Brynn lost her apprentice to a raider band three seasons ago and blames herself for sending the boy out alone. She has channeled the guilt into obsessive helpfulness — she will give away her last salve if she thinks you need it — but occasionally a bitter edge slips through when she talks about the village council's inaction. She does not sugarcoat, but she is never cruel.",
+      "speaking_style": "Terse and practical, with sudden unguarded pauses when something reminds her of her lost apprentice. Uses plant metaphors without realizing it. Answers questions with half-answers, then corrects herself and adds more detail than she intended.",
+      "hook": "The player is injured or ill, or has heard there is a rare reagent in the hills that Brynn desperately needs. She cannot leave Thistlemoor — too many people depend on her — and she is looking for someone willing to fetch it.",
+      "primary_axes": ["morality", "empathy", "deliberateness"],
+      "probe_topics": [
+        "Whether the raider camp to the north should be burned down or negotiated with",
+        "Who is responsible when someone you trusted gets hurt",
+        "Whether it is worth risking yourself for a stranger who might not survive anyway",
+        "The village council's decision to post no guards on the western trail"
+      ],
+      "opening_line": "You look like you've had a rough go of it. Come here — let me see that arm before it gets worse."
+    },
+    {
+      "id": "constable_edric",
+      "name": "Constable Edric Vayne",
+      "role": "Constable",
+      "appearance": "A tall man going soft around the middle, wearing a coat with a brass pin that was polished obsessively years ago and is now merely clean. He stands with his hands clasped behind his back as if perpetually waiting for an inspection that never comes.",
+      "personality": "Edric genuinely believes in order — not because someone told him to, but because he grew up in a village that did not have it and watched what happened. He is not corrupt, but he is rigid, and there is a growing anxiety beneath his confidence because the rules he trusts are failing and he does not know what to do with that. He will never admit doubt first, but he will if pressed sincerely.",
+      "speaking_style": "Formal and measured, with a habit of citing precedent. Uses phrases like 'as a matter of record' and 'the statutes are clear on this.' Becomes slower and more deliberate when he is uncertain, not faster.",
+      "hook": "A trader was found dead inside the village boundary. Under local law Edric must charge someone within seven days or pay a fine he cannot afford. He is not sure the man he has detained is guilty, but releasing him risks his position. He needs information the law prevents him from gathering himself.",
+      "primary_axes": ["lawfulness", "deference", "morality"],
+      "probe_topics": [
+        "Whether the detained man's guilt matters as long as order is maintained",
+        "What should happen to someone who breaks a rule for a good reason",
+        "Whether the village lord's new travel tax is legitimate authority or overreach",
+        "The right way to handle someone who resists a lawful instruction"
+      ],
+      "opening_line": "Slow down. This is a restricted area pending investigation. State your business here and I will determine whether you may proceed."
+    },
+    {
+      "id": "fen_the_drifter",
+      "name": "Fen",
+      "role": "Drifter",
+      "appearance": "Indeterminate age, with the look of someone who has slept outdoors more than in. Wears mismatched clothes clearly sourced from different places over many years. Has a habit of sitting with his back to walls and his eyes on exits.",
+      "personality": "Fen left Thistlemoor twelve years ago under circumstances he will not explain and has just returned, finding nothing how he left it. He is not hostile but keeps people at arm's length as a reflex. Underneath the deflection is someone genuinely lonely who does not know how to stop performing detachment.",
+      "speaking_style": "Oblique and anecdotal — he answers questions with stories about people in other places who had similar problems, never directly. Occasionally forgets to keep the distance up and lets something real slip. Darkly funny when comfortable.",
+      "hook": "Fen knows a route through the Ashfen that avoids the constable's checkpoints, and word has gotten out. He will only share it with someone he decides he can read correctly. He is also quietly looking for information about what happened to a specific person while he was gone.",
+      "primary_axes": ["sociability", "immersion", "aggression"],
+      "probe_topics": [
+        "Whether belonging somewhere is worth what it costs you",
+        "What a person owes a place they left behind",
+        "How to handle someone you know is following you",
+        "The difference between running away and starting over"
+      ],
+      "opening_line": "You're looking at me like you've heard something. Go ahead and ask — I've been asked worse."
+    },
+    {
+      "id": "maren_the_miller",
+      "name": "Maren Tolst",
+      "role": "Miller",
+      "appearance": "A broad-shouldered woman with flour perpetually in the crease of her forearms and the kind of laugh that makes other people laugh before they know what is funny. Wears a faded red scarf around her wrist that she touches when she is worried, though she would deny it.",
+      "personality": "Maren is the social center of Thistlemoor by gravity, not design — she feeds people and she listens. She collects gossip with the warmth of genuine curiosity, not malice. She is quietly running a debt-forgiveness arrangement for families who cannot afford grain, and she is terrified the lord's accountant is going to find out.",
+      "speaking_style": "Warm and verbose. Remembers personal details and uses them. Interrupts herself with tangents and always finds her way back. Offers things three times and means it every time.",
+      "hook": "Someone is skimming from the mill's communal grain stores at night. Maren cannot go to the constable without exposing her own unauthorized charitable arrangements. She is recruiting anyone who seems trustworthy enough to watch and report — not confront.",
+      "primary_axes": ["sociability", "empathy", "themes"],
+      "probe_topics": [
+        "Whether a small theft is forgivable if the person was desperate enough",
+        "How to keep a secret that helps people when the secret itself breaks a rule",
+        "What loyalty looks like when it conflicts with honesty",
+        "Who in Thistlemoor is actually struggling and not saying so"
+      ],
+      "opening_line": "Oh good, a new face — sit down, I've got the bread out and it's too much for one person. Tell me something interesting."
+    },
+    {
+      "id": "elder_cass",
+      "name": "Elder Cassivane",
+      "role": "Recordkeeper",
+      "appearance": "Ancient and dry as old paper, with hands so knotted by joint-ache that she writes with a stylus strapped to her palm. Sits behind a desk buried in bound ledgers, from which she can retrieve any document within thirty seconds without looking.",
+      "personality": "Cass has been keeping Thistlemoor's records for forty-one years and has seen every type of person come through. She does not judge — she categorizes. She is one of the few people in the village who knows things are going to get significantly worse, and she has already made her peace with it.",
+      "speaking_style": "Precise and unhurried. Rarely uses two words when one will do, but refuses to stop at one when accuracy requires more. Has a habit of citing dates. Answers a question about feelings by answering a question about facts, and somehow the emotional answer is still in there.",
+      "hook": "Cass controls records of every transaction, land claim, and legal dispute in Thistlemoor's history. The player needs access to something — a deed, a birth record, proof. Cass will trade access for a task: carry a sealed letter to someone in the next settlement and report back how they reacted when they read it.",
+      "primary_axes": ["deliberateness", "themes", "lawfulness"],
+      "probe_topics": [
+        "Whether history changes meaning based on who writes it down",
+        "What should happen to records that implicate someone powerful",
+        "The difference between a secret kept for protection and a secret kept for control",
+        "Whether knowing everything that happened in a place makes it easier or harder to leave"
+      ],
+      "opening_line": "I wondered when someone would come looking. Sit — this will take a moment, and I have questions of my own before I open any of these books."
+    },
+    {
+      "id": "jorath_the_smith",
+      "name": "Jorath Gell",
+      "role": "Blacksmith",
+      "appearance": "Built like he was assembled from spare parts of several large men. His face carries two burn scars he dismisses as 'attention failures' and a permanent expression of mild suspicion that dissolves into something unguarded when he is genuinely interested.",
+      "personality": "Jorath does not believe in asking for help and is visibly uncomfortable when people offer it — not from pride but from a deep conviction that depending on others is how people get used. He will help freely but cannot accept help without a transaction to make it feel fair. He is wrestling with whether a traveling weaponsmith who wants to settle here is a colleague or a threat.",
+      "speaking_style": "Short sentences. Rarely makes eye contact but watches peripherally with total attention. Prefers to talk while working — forge noise covers pauses he does not want to fill. Uses 'fair enough' as both agreement and end-of-conversation.",
+      "hook": "Jorath is the only person in Thistlemoor who can repair a specific mechanism in a broken piece of gear the player needs. He will do it, but he wants the player's honest read on the traveling smith — whether they seem like trouble — because he does not trust his own judgment when he is this close to a decision.",
+      "primary_axes": ["aggression", "deference", "sociability"],
+      "probe_topics": [
+        "Whether someone new coming to town is an opportunity or a risk",
+        "What a person is owed after years of being the only one who does something",
+        "How to handle a disagreement with someone bigger than you without starting something you cannot finish",
+        "Whether asking for help is weakness or just math"
+      ],
+      "opening_line": "You need something fixed or you're just here to watch. Either way, stand back from the bellows."
+    }
+  ]
+}
