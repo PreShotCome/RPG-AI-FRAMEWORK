@@ -1,0 +1,121 @@
+{
+  "aldric_miller": {
+    "id": "aldric_miller",
+    "name": "Aldric",
+    "role": "Miller",
+    "area_id": "mill",
+    "personality": "Quiet, methodical, oddly philosophical about grain",
+    "appearance": "Flour-dusted, large hands, always seems to be listening to something you can't hear",
+    "profiling_style": "disguised_mundane",
+    "signature_questions": [
+      "You know, some folk want their flour fine as dust — almost powder. Others want it rough, with texture you can feel. I find that says something about a person. Which do you prefer?",
+      "The wheel turns whether I'm here or not. Does that comfort you, or does it bother you?",
+      "I had a traveler once ask me why I bother grinding grain when you could just eat the whole kernel. I didn't have an answer. What would you have said?"
+    ],
+    "dimension_reveals": ["playstyle", "decision_speed", "voice"],
+    "relationship_start": 0,
+    "faction": "none"
+  },
+  "marta_innkeeper": {
+    "id": "marta_innkeeper",
+    "name": "Marta",
+    "role": "Innkeeper",
+    "area_id": "inn",
+    "personality": "Warm, sharp-eyed, remembers everything everyone has ever said to her",
+    "appearance": "Round-faced, always drying her hands on an apron that never gets clean",
+    "profiling_style": "reflection_as_confession",
+    "signature_questions": [
+      "We had a traveler last month who insisted on sleeping with the window open despite the cold. Said he needed to hear the world outside. Do you find yourself listening for things?",
+      "I sometimes wonder — if someone you trusted lied to you to protect you, would you want to know?",
+      "My daughter says I remember too much. That I should let things go. I think I remember exactly the right amount. Which are you?"
+    ],
+    "dimension_reveals": ["authority_stance", "moral_axis", "social_role"],
+    "relationship_start": 10,
+    "faction": "none"
+  },
+  "cob_guard": {
+    "id": "cob_guard",
+    "name": "Cob",
+    "role": "Village Guard",
+    "area_id": "inn",
+    "personality": "Practical, carries a guilt he doesn't talk about, weirdly relieved to see strangers",
+    "appearance": "Broad shoulders, a nose that's been broken twice, always leaning on something",
+    "profiling_style": "moral_micro_decision",
+    "signature_questions": [
+      "Between you and me — I let a thief go last season. Caught him stealing bread for his kids. Still wonder sometimes if I did right. What would you have done?",
+      "Rules are rules, but rules don't always account for people. You seem like someone who's had to decide which matters more.",
+      "I've been guard here twelve years. Never had to draw my sword. Is that a good thing or a wasted life?"
+    ],
+    "dimension_reveals": ["law_axis", "moral_axis", "authority_stance"],
+    "relationship_start": 5,
+    "faction": "guard"
+  },
+  "elowen_herbalist": {
+    "id": "elowen_herbalist",
+    "name": "Elowen",
+    "role": "Herbalist",
+    "area_id": "market",
+    "personality": "Precise, patient, sorts plants by a system only she understands",
+    "appearance": "Long fingers perpetually stained green, talks to plants under her breath",
+    "profiling_style": "disguised_mundane",
+    "signature_questions": [
+      "Some people want a remedy fast — they don't care how it works, only that it does. Others want to understand every step. Which are you?",
+      "I grow things that won't bloom here. Keep trying anyway. Some would call that foolish. What do you call it?",
+      "There's a plant that only survives by making itself taste terrible. I've always found that an interesting solution. Is that admirable or sad?"
+    ],
+    "dimension_reveals": ["roleplay_depth", "preferred_themes", "decision_speed"],
+    "relationship_start": 0,
+    "faction": "none"
+  },
+  "nessa_merchant": {
+    "id": "nessa_merchant",
+    "name": "Nessa",
+    "role": "Traveling Merchant",
+    "area_id": "market",
+    "personality": "Fast-talking, shrewd, never stays long but always comes back",
+    "appearance": "Colorful scarves, rings on every finger, eyes that calculate faster than she speaks",
+    "profiling_style": "moral_micro_decision",
+    "signature_questions": [
+      "I sell information sometimes. Not secrets — just things people overlook. Would you buy that, or does it feel wrong to you?",
+      "I once told a customer their horse was overpriced when I could have stayed quiet and sold them something else. I lost coin that day. Was that stupid or decent?",
+      "People think merchants only care about gold. Some of us care about the story of how the gold moves. Do you see money as a means or a story?"
+    ],
+    "dimension_reveals": ["moral_axis", "voice", "social_role"],
+    "relationship_start": 0,
+    "faction": "merchants"
+  },
+  "ysabel_elder": {
+    "id": "ysabel_elder",
+    "name": "Ysabel",
+    "role": "Elder / Village Grandmother",
+    "area_id": "bench",
+    "personality": "Ancient, unhurried, asks questions like she already knows the answers",
+    "appearance": "Wrapped in shawls regardless of weather, hands folded over a carved walking stick she never uses",
+    "profiling_style": "reflection_as_confession",
+    "signature_questions": [
+      "I dreamed of you last night. You were standing in fire. Were you running toward it or away from it?",
+      "My grandson asked me yesterday why I help strangers. I couldn't think of a good answer. What would you have said?",
+      "If you could be invisible for one day — truly unseen — what would you do? And please, don't tell me what you think you should say."
+    ],
+    "dimension_reveals": ["moral_axis", "social_role", "preferred_themes"],
+    "relationship_start": 0,
+    "faction": "none"
+  },
+  "finn_acolyte": {
+    "id": "finn_acolyte",
+    "name": "Finn",
+    "role": "Chapel Acolyte",
+    "area_id": "chapel",
+    "personality": "Young, uncertain of his faith, deeply curious about everyone else's certainty",
+    "appearance": "Too-large robes, ink-stained fingers, always in the middle of a thought",
+    "profiling_style": "reflection_as_confession",
+    "signature_questions": [
+      "I take care of this chapel but I'm not sure I believe in anything it stands for. Is that dishonest, or just honest?",
+      "People come here when they're lost. They leave the same way they arrived, mostly. But sometimes not. What do you come to places like this looking for?",
+      "If you knew something terrible about someone who was also being kind to you — would knowing it change how you received the kindness?"
+    ],
+    "dimension_reveals": ["roleplay_depth", "moral_axis", "authority_stance"],
+    "relationship_start": 0,
+    "faction": "chapel"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "mission_types": {
+    "investigation": {
+      "description": "Uncover the truth behind a mystery",
+      "preferred_by": ["mystery", "politics"],
+      "playstyle_fit": ["stealth", "diplomacy"]
+    },
+    "combat_challenge": {
+      "description": "Overcome a threat through force",
+      "preferred_by": ["action", "survival"],
+      "playstyle_fit": ["combat"]
+    },
+    "moral_choice": {
+      "description": "A situation with no clean answer",
+      "preferred_by": ["politics", "mystery"],
+      "playstyle_fit": ["diplomacy", "exploration"]
+    },
+    "heist": {
+      "description": "Acquire something without being seen",
+      "preferred_by": ["action", "politics"],
+      "playstyle_fit": ["stealth"]
+    },
+    "escort_protection": {
+      "description": "Keep someone or something safe",
+      "preferred_by": ["survival", "action"],
+      "playstyle_fit": ["combat", "diplomacy"]
+    },
+    "political_intrigue": {
+      "description": "Navigate competing factions and loyalties",
+      "preferred_by": ["politics", "mystery"],
+      "playstyle_fit": ["diplomacy"]
+    },
+    "ancient_mystery": {
+      "description": "Unravel something old and forgotten",
+      "preferred_by": ["mystery", "horror"],
+      "playstyle_fit": ["exploration"]
+    },
+    "survival_challenge": {
+      "description": "Endure and adapt under pressure",
+      "preferred_by": ["survival", "action"],
+      "playstyle_fit": ["combat", "exploration"]
+    }
+  },
+  "npc_role_mission_map": {
+    "merchant": ["heist", "investigation", "political_intrigue"],
+    "guard": ["escort_protection", "combat_challenge", "moral_choice"],
+    "elder": ["ancient_mystery", "moral_choice", "investigation"],
+    "scholar": ["ancient_mystery", "investigation"],
+    "criminal": ["heist", "moral_choice", "political_intrigue"],
+    "noble": ["political_intrigue", "escort_protection", "moral_choice"],
+    "priest": ["ancient_mystery", "moral_choice"],
+    "soldier": ["combat_challenge", "escort_protection", "survival_challenge"],
+    "innkeeper": ["investigation", "moral_choice"],
+    "miller": ["investigation", "survival_challenge"]
+  }
+}
