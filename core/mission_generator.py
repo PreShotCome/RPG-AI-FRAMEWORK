@@ -170,7 +170,6 @@ Generate {pool_size} missions.
     response = _client.messages.create(
         model=MODEL,
         max_tokens=6000,
-        thinking={"type": "enabled", "budget_tokens": 4000},
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
     )

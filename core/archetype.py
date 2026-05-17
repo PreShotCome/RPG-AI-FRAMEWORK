@@ -53,7 +53,6 @@ Observations:   {profile.observation_count}
     response = _client.messages.create(
         model=MODEL,
         max_tokens=512,
-        thinking={"type": "enabled", "budget_tokens": 2000},
         system=_SYSTEM,
         messages=[{"role": "user", "content": profile_summary}],
     )

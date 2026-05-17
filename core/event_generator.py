@@ -116,7 +116,6 @@ Reference specifics — faction names, region names, recent events — not abstr
     response = _client.messages.create(
         model=MODEL,
         max_tokens=3000,
-        thinking={"type": "enabled", "budget_tokens": 3000},
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
     )
