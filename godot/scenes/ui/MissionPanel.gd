@@ -120,3 +120,18 @@ func _difficulty_color(difficulty: String) -> Color:
 		"low":    return Color(0.5, 0.9, 0.5)
 		"high":   return Color(0.9, 0.4, 0.4)
 		_:        return Color(0.9, 0.85, 0.5)
+
+
+func load_missions() -> void:
+	_clear_list()
+	completion_section.hide()
+	var hint := Label.new()
+	hint.text = "[ fetching mission pool... ]"
+	hint.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
+	mission_list.add_child(hint)
+
+	var data = await APIManager.generate_missions(GameState.session_id)
+	hint.queue_free()
+	if data:
+		GameState.apply_missions(data)
+	show_missions(GameState.mission_pool)

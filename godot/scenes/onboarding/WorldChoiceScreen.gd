@@ -92,4 +92,4 @@ func _choose(choice: String) -> void:
 	if resources:
 		GameState.apply_resources(resources)
 
-	get_tree().change_scene_to_file("res://scenes/main/MainWorld.tscn")
+	get_tree().change_scene_to_file("res://scenes/main/MainGame.tscn")

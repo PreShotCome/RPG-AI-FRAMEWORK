@@ -71,3 +71,7 @@ func _refresh() -> void:
 			var label := Label.new()
 			label.text = "%s: %d tokens" % [faction_name, tokens[faction_name]]
 			faction_tokens_container.add_child(label)
+
+
+func load_stats() -> void:
+	show_stats()

@@ -132,7 +132,7 @@ def run_onboarding() -> str:
             print()
         choice_idx = choose(["World A", "World B"])
 
-    chosen_label = ["a", "b"][choice_idx]
+    chosen_label = ["A", "B"][choice_idx]
     result = post(f"/onboarding/{session_id}/choose", choice=chosen_label)
 
     section("World Locked In")

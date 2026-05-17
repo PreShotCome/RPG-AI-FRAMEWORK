@@ -107,3 +107,23 @@ func _on_confirm() -> void:
 func _clear_options() -> void:
 	for child in options_container.get_children():
 		child.queue_free()
+
+
+func load_events() -> void:
+	var label := Label.new()
+	label.text = "[ scanning for anomalies... ]"
+	label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
+	options_container.add_child(label)
+
+	var data = await APIManager.tick_events(GameState.session_id)
+	label.queue_free()
+	if data:
+		GameState.apply_events(data)
+	if GameState.active_events.is_empty():
+		event_title.text = "All Quiet"
+		event_description.text = "No anomalies detected in your sector."
+		narrative_hook.text = ""
+		_clear_options()
+		show()
+	else:
+		show_events(GameState.active_events)

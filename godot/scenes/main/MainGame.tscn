@@ -1,0 +1,172 @@
+[gd_scene load_steps=8 format=3 uid="uid://bmain001"]
+
+[ext_resource type="Script" path="res://scenes/main/MainGame.gd" id="1_mg"]
+[ext_resource type="PackedScene" uid="uid://bmissions001" path="res://scenes/ui/MissionPanel.tscn" id="2_mp"]
+[ext_resource type="PackedScene" uid="uid://bdialogue001" path="res://scenes/ui/DialoguePanel.tscn" id="3_dp"]
+[ext_resource type="PackedScene" uid="uid://bevent001" path="res://scenes/ui/EventPanel.tscn" id="4_ep"]
+[ext_resource type="PackedScene" uid="uid://bstats001" path="res://scenes/ui/StatsPanel.tscn" id="5_sp"]
+[ext_resource type="PackedScene" path="res://scenes/ui/MapPanel.tscn" id="6_map"]
+
+[node name="MainGame" type="Control"]
+script = ExtResource("1_mg")
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.039, 0.043, 0.055, 1)
+
+[node name="Layout" type="MarginContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TopBar" type="HBoxContainer" parent="Layout/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="WorldLabel" type="Label" parent="Layout/VBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "UNKNOWN SECTOR"
+theme_override_colors/font_color = Color(0.29, 0.62, 1.0, 1)
+theme_override_font_sizes/font_size = 14
+
+[node name="DayLabel" type="Label" parent="Layout/VBox/TopBar"]
+layout_mode = 2
+text = "DAY 1"
+theme_override_colors/font_color = Color(0.42, 0.45, 0.56, 1)
+theme_override_font_sizes/font_size = 11
+
+[node name="CompanionLabel" type="Label" parent="Layout/VBox/TopBar"]
+layout_mode = 2
+text = ""
+theme_override_colors/font_color = Color(0.25, 0.45, 0.25, 1)
+theme_override_font_sizes/font_size = 10
+
+[node name="NarrativeScroll" type="ScrollContainer" parent="Layout/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 200)
+follow_focus = true
+
+[node name="NarrativeLog" type="VBoxContainer" parent="Layout/VBox/NarrativeScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Separator" type="HSeparator" parent="Layout/VBox"]
+layout_mode = 2
+
+[node name="BottomBar" type="HBoxContainer" parent="Layout/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MissionsBtn" type="Button" parent="Layout/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "MISSIONS"
+
+[node name="TalkBtn" type="Button" parent="Layout/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "TALK"
+
+[node name="EventsBtn" type="Button" parent="Layout/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "EVENTS"
+
+[node name="StatsBtn" type="Button" parent="Layout/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "STATS"
+
+[node name="MapBtn" type="Button" parent="Layout/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "MAP"
+
+[node name="AdvanceDayBtn" type="Button" parent="Layout/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "⏭  DAY"
+
+[node name="MissionPanel" parent="." instance=ExtResource("2_mp")]
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="NPCPanel" parent="." instance=ExtResource("3_dp")]
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="EventPanel" parent="." instance=ExtResource("4_ep")]
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="StatsPanel" parent="." instance=ExtResource("5_sp")]
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="MapPanel" parent="." instance=ExtResource("6_map")]
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="NPCRoster" type="PanelContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="VBox" type="VBoxContainer" parent="NPCRoster"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RosterHeader" type="HBoxContainer" parent="NPCRoster/VBox"]
+layout_mode = 2
+
+[node name="RosterTitle" type="Label" parent="NPCRoster/VBox/RosterHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "CONTACTS"
+theme_override_colors/font_color = Color(0.75, 0.75, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="CloseButton" type="Button" parent="NPCRoster/VBox/RosterHeader"]
+layout_mode = 2
+text = "✕"
+
+[node name="RosterScroll" type="ScrollContainer" parent="NPCRoster/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 120)
+
+[node name="RosterList" type="VBoxContainer" parent="NPCRoster/VBox/RosterScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="SpawnRow" type="HBoxContainer" parent="NPCRoster/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RoleInput" type="LineEdit" parent="NPCRoster/VBox/SpawnRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Role (e.g. merchant, engineer, alien diplomat)"
+
+[node name="SpawnBtn" type="Button" parent="NPCRoster/VBox/SpawnRow"]
+layout_mode = 2
+text = "MAKE CONTACT"
