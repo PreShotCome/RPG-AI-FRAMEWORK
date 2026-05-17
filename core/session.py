@@ -10,7 +10,9 @@ Replace the dict with file/DB persistence when the save system is built.
 """
 
 from dataclasses import dataclass, field
+from typing import Optional
 from core.profile import PlayerProfile
+from core.preferences import WorldPreferences
 
 
 @dataclass
@@ -28,6 +30,9 @@ class NPCHistory:
 class GameSession:
     profile: PlayerProfile = field(default_factory=PlayerProfile)
     npc_histories: dict[str, NPCHistory] = field(default_factory=dict)
+    preferences: WorldPreferences = field(default_factory=WorldPreferences)
+    archetype: Optional[dict] = None
+    generated_world: Optional[dict] = None
 
     def npc_history(self, npc_id: str) -> NPCHistory:
         if npc_id not in self.npc_histories:
