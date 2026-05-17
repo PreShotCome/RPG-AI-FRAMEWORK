@@ -15,6 +15,7 @@ from typing import Optional
 from core.profile import PlayerProfile
 from core.preferences import WorldPreferences, GamerFocus
 from core.world_state import WorldState
+from core.resources import PlayerStats, PlayerInventory
 
 DIFFICULTIES = ("casual", "regular", "hardcore")
 
@@ -59,6 +60,9 @@ class GameSession:
     event_log: list[dict] = field(default_factory=list)
     lore_discovered: list[dict] = field(default_factory=list)
     reset_history: list[dict] = field(default_factory=list)
+    stats: PlayerStats = field(default_factory=PlayerStats)
+    inventory: PlayerInventory = field(default_factory=PlayerInventory)
+    resources_initialized: bool = False
     difficulty: str = "regular"
     world_name: str = ""
     in_game_day: int = 1
@@ -88,6 +92,9 @@ class GameSession:
             "event_log": self.event_log,
             "lore_discovered": self.lore_discovered,
             "reset_history": self.reset_history,
+            "stats": self.stats.to_dict(),
+            "inventory": self.inventory.to_dict(),
+            "resources_initialized": self.resources_initialized,
             "difficulty": self.difficulty,
             "world_name": self.world_name,
             "in_game_day": self.in_game_day,
@@ -112,6 +119,9 @@ class GameSession:
         session.event_log = data.get("event_log", [])
         session.lore_discovered = data.get("lore_discovered", [])
         session.reset_history = data.get("reset_history", [])
+        session.stats = PlayerStats.from_dict(data.get("stats", {}))
+        session.inventory = PlayerInventory.from_dict(data.get("inventory", {}))
+        session.resources_initialized = data.get("resources_initialized", False)
         session.difficulty = data.get("difficulty", "regular")
         session.world_name = data.get("world_name", "")
         session.in_game_day = data.get("in_game_day", 1)

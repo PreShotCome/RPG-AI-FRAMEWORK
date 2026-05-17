@@ -72,6 +72,21 @@ Schema:
     "name": "<name>",
     "description": "<where the player begins, post-training-world>",
     "immediate_hook": "<the first thing that pulls them in>"
+  },
+
+  "currency": {
+    "name": "<what this world calls its primary currency — specific to the setting>",
+    "symbol": "<1-3 char shorthand, e.g. 'G', 'cr', '₿', '¥'>",
+    "lore": "<one sentence: origin or cultural meaning of this currency>"
+  },
+
+  "stat_flavors": {
+    "combat":     "<world-specific display name for combat skill, e.g. 'Muscle', 'Warfare', 'Heat'>",
+    "stealth":    "<e.g. 'Shadow', 'Ghost', 'Quiet'>",
+    "persuasion": "<e.g. 'Silver Tongue', 'Influence', 'Pull'>",
+    "intellect":  "<e.g. 'Head', 'Lore', 'Circuit'>",
+    "endurance":  "<e.g. 'Grit', 'Vitality', 'Iron'>",
+    "luck":       "<e.g. 'Fortune', 'Fate', 'Chance'>"
   }
 }
 

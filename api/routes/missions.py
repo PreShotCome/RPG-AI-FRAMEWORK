@@ -5,6 +5,7 @@ from core import session as sessions
 from core.world_state import WorldState, WorldEvent
 from core.mission_generator import generate_pool
 from core.profiler import analyze_message
+from core.resources import calculate_mission_reward, apply_reward
 
 router = APIRouter(prefix="/missions", tags=["missions"])
 
@@ -30,6 +31,7 @@ class CompleteRequest(BaseModel):
     outcome: str                      # "success" | "failure" | "partial"
     approach_used: str                # free-text — how the player actually did it
     notes: Optional[str] = None       # optional extra context for profile update
+    apply_rewards: bool = True        # set False if Godot wants to apply manually
 
     @field_validator("outcome")
     @classmethod
@@ -155,12 +157,21 @@ def complete_mission(session_id: str, req: CompleteRequest):
     message, context = _build_profile_signal(mission, req)
     game_session.profile = analyze_message(message, game_session.profile, context)
 
-    # 3. Move mission to history
+    # 3. Calculate rewards
+    giver_faction = mission.get("giver", {}).get("faction", "")
+    difficulty = mission.get("difficulty", "medium")
+    reward = calculate_mission_reward(difficulty, req.outcome, giver_faction)
+
+    if req.apply_rewards and game_session.resources_initialized:
+        apply_reward(game_session.inventory, reward)
+
+    # 4. Move mission to history
     history_entry = {
         **mission,
         "outcome": req.outcome,
         "approach_used": req.approach_used,
         "notes": req.notes,
+        "reward": reward,
     }
     game_session.mission_history.append(history_entry)
     game_session.mission_pool = [m for m in game_session.mission_pool if m["id"] != req.mission_id]
@@ -168,6 +179,9 @@ def complete_mission(session_id: str, req: CompleteRequest):
     return {
         "session_id": session_id,
         "completed": history_entry,
+        "reward": reward,
+        "rewards_applied": req.apply_rewards and game_session.resources_initialized,
+        "inventory": game_session.inventory.to_dict() if game_session.resources_initialized else None,
         "world_state": game_session.world_state.summary(),
         "profile_observations": game_session.profile.observation_count,
         "pool_remaining": len(game_session.mission_pool),
