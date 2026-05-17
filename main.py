@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import profiling, dialogue, world, missions, npcs, events, saves, lore, resources
+from api.routes import profiling, dialogue, world, missions, npcs, events, saves, lore, resources, mirror
 import config
 
 app = FastAPI(title="RPG AI Framework", version="0.1.0")
@@ -22,6 +22,7 @@ app.include_router(events.router)
 app.include_router(saves.router)
 app.include_router(lore.router)
 app.include_router(resources.router)
+app.include_router(mirror.router)
 
 
 @app.get("/health")

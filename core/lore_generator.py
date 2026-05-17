@@ -13,6 +13,7 @@ from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
 from core.preferences import WorldPreferences
 from core.world_state import WorldState
+from core.creative_voice import WONDER_DIRECTIVE
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -28,13 +29,15 @@ LORE_TYPES = [
 
 TRIGGERS = ["artifact", "location", "book", "npc_conversation", "mission_complete"]
 
-_SYSTEM = """
+_SYSTEM = f"""
 You are the keeper of lore for a unique RPG world. Your role is to reveal
 what has always been true about this world — not to invent things on the spot,
 but to uncover what was already there.
 
 Consistency is everything. Read the existing discovered lore carefully.
 Build on it, reference it, deepen it. Never contradict it.
+
+{WONDER_DIRECTIVE}
 
 Return ONLY valid JSON — no explanation, no markdown fences.
 

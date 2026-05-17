@@ -15,13 +15,16 @@ import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
 from core.preferences import WorldPreferences
+from core.creative_voice import WONDER_DIRECTIVE
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-_SYSTEM = """
+_SYSTEM = f"""
 You are a world architect for an AI-powered RPG. You generate complete,
 personalized game worlds that match both who the player is psychologically
 and what kind of game they want to play.
+
+{WONDER_DIRECTIVE}
 
 Return ONLY valid JSON — no explanation, no markdown fences.
 

@@ -11,6 +11,7 @@ from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
 from core.world_state import WorldState
 from core.resources import PlayerStats, STAT_KEYS
+from core.creative_voice import NPC_VOICE_DIRECTIVE
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -128,6 +129,8 @@ RULES
 - Keep responses to 2-4 sentences unless the moment demands more. This is dialogue, not monologue.
 - You may offer hooks, hints, or missions naturally — but only when it fits the conversation.
 - Let the player's capabilities colour how you read them. A highly capable fighter commands different respect than a green one.
+
+{NPC_VOICE_DIRECTIVE}
 """.strip()
 
 

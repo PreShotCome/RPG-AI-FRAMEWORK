@@ -60,6 +60,7 @@ class GameSession:
     event_log: list[dict] = field(default_factory=list)
     lore_discovered: list[dict] = field(default_factory=list)
     reset_history: list[dict] = field(default_factory=list)
+    mirrors: list[dict] = field(default_factory=list)
     stats: PlayerStats = field(default_factory=PlayerStats)
     inventory: PlayerInventory = field(default_factory=PlayerInventory)
     resources_initialized: bool = False
@@ -92,6 +93,7 @@ class GameSession:
             "event_log": self.event_log,
             "lore_discovered": self.lore_discovered,
             "reset_history": self.reset_history,
+            "mirrors": self.mirrors,
             "stats": self.stats.to_dict(),
             "inventory": self.inventory.to_dict(),
             "resources_initialized": self.resources_initialized,
@@ -119,6 +121,7 @@ class GameSession:
         session.event_log = data.get("event_log", [])
         session.lore_discovered = data.get("lore_discovered", [])
         session.reset_history = data.get("reset_history", [])
+        session.mirrors = data.get("mirrors", [])
         session.stats = PlayerStats.from_dict(data.get("stats", {}))
         session.inventory = PlayerInventory.from_dict(data.get("inventory", {}))
         session.resources_initialized = data.get("resources_initialized", False)
