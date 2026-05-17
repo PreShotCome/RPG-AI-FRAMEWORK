@@ -4,6 +4,7 @@ from typing import Optional
 from core import session as sessions
 from core.world_state import WorldState
 from core.lore_generator import discover, LORE_TYPES, TRIGGERS
+from core.input_guard import check
 
 router = APIRouter(prefix="/lore", tags=["lore"])
 
@@ -73,6 +74,8 @@ def discover_lore(session_id: str, req: DiscoverRequest):
     if game_session.archetype is None:
         raise HTTPException(status_code=400, detail="Archetype missing — regenerate the world.")
 
+    safe_context = check(req.context, "context")
+
     # Validate region and faction against world if provided
     if req.region:
         world_regions = [r["name"] for r in game_session.generated_world.get("regions", [])]
@@ -92,7 +95,7 @@ def discover_lore(session_id: str, req: DiscoverRequest):
 
     entry = discover(
         trigger=req.trigger,
-        context=req.context,
+        context=safe_context,
         world=game_session.generated_world,
         world_state=game_session.world_state,
         profile=game_session.profile,

@@ -6,6 +6,7 @@ from core.world_state import WorldState
 from core.npc_generator import spawn, NPC_ROLES
 from core.npc_dialogue import respond
 from core.profiler import analyze_message
+from core.input_guard import check
 
 router = APIRouter(prefix="/npcs", tags=["npcs"])
 
@@ -98,6 +99,9 @@ def spawn_npc(session_id: str, req: SpawnRequest):
             detail=f"Unknown region '{region}'. World regions: {world_regions}",
         )
 
+    if req.context_hint:
+        req.context_hint = check(req.context_hint, "context_hint")
+
     npc = spawn(
         role=req.role,
         faction=faction,
@@ -137,9 +141,10 @@ def talk(session_id: str, npc_id: str, req: TalkRequest):
         raise HTTPException(status_code=404, detail=f"NPC {npc_id} not found. Call /spawn first.")
 
     history_obj = game_session.npc_history(npc_id)
+    safe_message = check(req.message, "player_message")
 
     reply = respond(
-        player_message=req.message,
+        player_message=safe_message,
         npc=npc,
         history=history_obj.to_claude_messages(),
         player=game_session.profile,
@@ -150,7 +155,7 @@ def talk(session_id: str, npc_id: str, req: TalkRequest):
         stats=game_session.stats if game_session.resources_initialized else None,
     )
 
-    history_obj.add("user", req.message)
+    history_obj.add("user", safe_message)
     history_obj.add("assistant", reply)
 
     if req.update_profile:

@@ -6,6 +6,7 @@ from core.world_state import WorldState, WorldEvent
 from core.world_tick import compute_pressure, events_to_generate, bias_event_types
 from core.event_generator import generate
 from core.profiler import analyze_message
+from core.input_guard import check
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -144,6 +145,8 @@ def respond_to_event(session_id: str, req: RespondRequest):
     game_session = sessions.get(session_id)
     _require_world(game_session)
 
+    safe_approach = check(req.approach, "approach")
+
     event = next((e for e in game_session.active_events if e["id"] == req.event_id), None)
     if event is None:
         raise HTTPException(
@@ -165,13 +168,13 @@ def respond_to_event(session_id: str, req: RespondRequest):
     # Update profile — same pipeline as mission completion
     context = (
         f"World event: '{event['title']}' ({event['type']}). "
-        f"Player chose: {option['label']}. Approach: {req.approach}"
+        f"Player chose: {option['label']}. Approach: {safe_approach}"
     )
-    game_session.profile = analyze_message(req.approach, game_session.profile, context)
+    game_session.profile = analyze_message(safe_approach, game_session.profile, context)
 
     # Resolve the event
     event["resolved"] = True
-    event["player_choice"] = {"option_id": req.option_id, "approach": req.approach}
+    event["player_choice"] = {"option_id": req.option_id, "approach": safe_approach}
     game_session.active_events = [e for e in game_session.active_events if e["id"] != req.event_id]
 
     return {

@@ -6,6 +6,7 @@ from core.world_state import WorldState, WorldEvent
 from core.mission_generator import generate_pool
 from core.profiler import analyze_message
 from core.resources import calculate_mission_reward, apply_reward
+from core.input_guard import check, validate_missions_output
 
 router = APIRouter(prefix="/missions", tags=["missions"])
 
@@ -101,6 +102,10 @@ def generate_missions(session_id: str, req: GenerateRequest = GenerateRequest())
         pool_size=req.pool_size,
         stats=game_session.stats if game_session.resources_initialized else None,
     )
+    try:
+        validate_missions_output(pool)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"Mission generation failed validation: {e}")
     game_session.mission_pool = pool
 
     return {
@@ -129,6 +134,9 @@ def complete_mission(session_id: str, req: CompleteRequest):
     _require_world_ready(game_session, session_id)
     _ensure_world_state_seeded(game_session)
 
+    safe_approach = check(req.approach_used, "approach")
+    safe_notes = check(req.notes, "notes") if req.notes else None
+
     mission = game_session.find_mission(req.mission_id)
     if mission is None:
         raise HTTPException(
@@ -142,7 +150,7 @@ def complete_mission(session_id: str, req: CompleteRequest):
 
     event = WorldEvent(
         mission_id=req.mission_id,
-        summary=f"{req.outcome.title()}: {mission['title']} ({req.approach_used})",
+        summary=f"{req.outcome.title()}: {mission['title']} ({safe_approach})",
         faction_impacts={
             name: delta * impact_scale
             for name, delta in mission.get("faction_impact", {}).items()
@@ -155,6 +163,8 @@ def complete_mission(session_id: str, req: CompleteRequest):
     game_session.world_state.apply_event(event)
 
     # 2. Update the profile with the behavioural signal — same pipeline as NPC dialogue
+    req.approach_used = safe_approach
+    req.notes = safe_notes
     message, context = _build_profile_signal(mission, req)
     game_session.profile = analyze_message(message, game_session.profile, context)
 

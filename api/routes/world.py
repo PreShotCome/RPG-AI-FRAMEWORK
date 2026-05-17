@@ -4,6 +4,7 @@ from core import session as sessions
 from core.archetype import crystallize
 from core.preferences import WorldPreferences, GamerFocus, GAMER_FOCUS_KEYS
 from core.world_generator import generate
+from core.input_guard import check, validate_world_output
 
 router = APIRouter(prefix="/world", tags=["world"])
 
@@ -70,9 +71,12 @@ def generate_world(session_id: str, req: GenerateRequest):
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+    # Validate free-text input before it reaches the generator
+    safe_style = check(req.world_style, "world_style")
+
     # Store preferences on the session
     game_session.preferences = WorldPreferences(
-        world_style=req.world_style,
+        world_style=safe_style,
         gamer_focus=GamerFocus(
             story=req.gamer_focus.story,
             world=req.gamer_focus.world,
@@ -87,6 +91,10 @@ def generate_world(session_id: str, req: GenerateRequest):
         preferences=game_session.preferences,
         profile=game_session.profile,
     )
+    try:
+        validate_world_output(world)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"World generation failed validation: {e}")
     game_session.generated_world = world
 
     return WorldResponse(
