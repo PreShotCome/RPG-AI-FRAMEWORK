@@ -6,6 +6,7 @@ not random noise.
 """
 
 import json
+from core.json_utils import safe_parse
 import uuid
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
@@ -122,7 +123,7 @@ Reference specifics — faction names, region names, recent events — not abstr
 
     for block in response.content:
         if block.type == "text":
-            events = json.loads(block.text.strip())
+            events = safe_parse(block.text, "event generation")
             for e in events:
                 if "id" not in e or not e["id"]:
                     e["id"] = uuid.uuid4().hex[:8]

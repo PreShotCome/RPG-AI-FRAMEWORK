@@ -5,6 +5,7 @@ from core.profiler import analyze_message
 from core.archetype import crystallize
 from core.profile import PlayerProfile
 from core import session as sessions
+from api.rate_limit import check_rate_limit, record_api_call
 
 RESET_METHODS = ("therapy", "school", "quest")
 
@@ -60,7 +61,9 @@ class ArchetypeResponse(BaseModel):
 @router.post("/analyze", response_model=ProfileResponse)
 def analyze(req: AnalyzeRequest):
     """Manually feed a message into the profiler (use /dialogue/talk during gameplay)."""
+    check_rate_limit(req.session_id)
     game_session = sessions.get(req.session_id)
+    record_api_call(req.session_id)
     game_session.profile = analyze_message(req.message, game_session.profile, req.context)
     return ProfileResponse(
         session_id=req.session_id,
@@ -158,6 +161,7 @@ def reset_profile(session_id: str, req: ResetRequest):
     # Apply method seed to the fresh profile
     seed_message, seed_context = _METHOD_SEEDS[req.method]
     if seed_message:
+        record_api_call(session_id)
         game_session.profile = analyze_message(seed_message, game_session.profile, seed_context)
 
     return {

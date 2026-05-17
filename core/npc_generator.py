@@ -7,6 +7,7 @@ behave consistently in dialogue.
 """
 
 import json
+from core.json_utils import safe_parse
 import uuid
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
@@ -107,7 +108,7 @@ Their secrets should be genuinely interesting — things that could matter.
 
     for block in response.content:
         if block.type == "text":
-            npc = json.loads(block.text.strip())
+            npc = safe_parse(block.text, "NPC generation")
             npc["id"] = npc_id  # enforce the ID we assigned
             return npc
 

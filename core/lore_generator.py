@@ -7,6 +7,7 @@ matters: lore is revealed, not invented — it always existed in this world.
 """
 
 import json
+from core.json_utils import safe_parse
 import uuid
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
@@ -147,7 +148,7 @@ surface subtly — as a recurring symbol, a name echo, or a thematic resonance.
 
     for block in response.content:
         if block.type == "text":
-            entry = json.loads(block.text.strip())
+            entry = safe_parse(block.text, "lore generation")
             entry["id"] = lore_id
             return entry
 

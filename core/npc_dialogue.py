@@ -44,6 +44,23 @@ def _relevant_missions(npc: dict, mission_history: list[dict], limit: int = 4) -
     return [m for _, m in scored[:limit]]
 
 
+def _immersion_directive(immersion: float | None) -> str:
+    if immersion is None:
+        return ""
+    if immersion >= 0.65:
+        return (
+            "DEPTH NOTE: This player lives in the world. Give your character interiority — "
+            "hesitations, half-truths, the weight of history behind what you say. "
+            "Let pauses exist. You are a person, not a quest dispenser."
+        )
+    if immersion <= 0.35:
+        return (
+            "CLARITY NOTE: This player wants to understand quickly. Be direct. "
+            "Get to the point. No flowery preamble — just your character, plainly."
+        )
+    return ""
+
+
 def _build_system_prompt(
     npc: dict,
     player: PlayerProfile,
@@ -96,6 +113,7 @@ def _build_system_prompt(
         region_info = f"The {region} is currently at tension level {r.tension:.2f} — {'calm' if r.tension < 0.4 else 'tense' if r.tension < 0.7 else 'on the edge of violence'}."
 
     stat_context = _fmt_stat_context(stats, world, npc)
+    immersion_note = _immersion_directive(player.immersion)
 
     return f"""
 You are {npc['name']}, a {npc['role']} affiliated with {npc.get('faction', 'no faction')}, living in {npc.get('region', 'unknown')}.
@@ -131,6 +149,8 @@ RULES
 - Let the player's capabilities colour how you read them. A highly capable fighter commands different respect than a green one.
 
 {NPC_VOICE_DIRECTIVE}
+
+{immersion_note}
 """.strip()
 
 

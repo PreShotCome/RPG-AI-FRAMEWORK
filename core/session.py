@@ -11,6 +11,7 @@ Replace the dict with file/DB persistence when the save system is built.
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from core.profile import PlayerProfile
 from core.preferences import WorldPreferences, GamerFocus
@@ -32,6 +33,10 @@ SAVE_PERMISSIONS: dict[str, set[str]] = {
     "regular":  {"day_start", "auto", "glitch"},
     "hardcore": {"auto", "glitch"},
 }
+
+SESSION_TTL = timedelta(hours=48)
+RATE_LIMIT_CALLS = 150       # max Claude calls per window
+RATE_LIMIT_WINDOW = timedelta(hours=1)
 
 
 @dataclass
@@ -67,6 +72,29 @@ class GameSession:
     difficulty: str = "regular"
     world_name: str = ""
     in_game_day: int = 1
+    last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    api_calls_this_window: int = 0
+    rate_window_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def touch(self) -> None:
+        self.last_accessed = datetime.now(timezone.utc)
+
+    def is_expired(self) -> bool:
+        return datetime.now(timezone.utc) - self.last_accessed > SESSION_TTL
+
+    def is_rate_limited(self) -> bool:
+        now = datetime.now(timezone.utc)
+        if now - self.rate_window_start > RATE_LIMIT_WINDOW:
+            self.api_calls_this_window = 0
+            self.rate_window_start = now
+        return self.api_calls_this_window >= RATE_LIMIT_CALLS
+
+    def record_api_call(self) -> None:
+        now = datetime.now(timezone.utc)
+        if now - self.rate_window_start > RATE_LIMIT_WINDOW:
+            self.api_calls_this_window = 0
+            self.rate_window_start = now
+        self.api_calls_this_window += 1
 
     def npc_history(self, npc_id: str) -> NPCHistory:
         if npc_id not in self.npc_histories:
@@ -134,10 +162,19 @@ class GameSession:
 _store: dict[str, GameSession] = {}
 
 
+def _cleanup_expired() -> None:
+    expired = [sid for sid, s in _store.items() if s.is_expired()]
+    for sid in expired:
+        del _store[sid]
+
+
 def get(session_id: str) -> GameSession:
+    _cleanup_expired()
     if session_id not in _store:
         _store[session_id] = GameSession()
-    return _store[session_id]
+    session = _store[session_id]
+    session.touch()
+    return session
 
 
 def exists(session_id: str) -> bool:

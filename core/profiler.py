@@ -7,6 +7,7 @@ the Brain on Render. For now it calls Claude directly.
 """
 
 import json
+from core.json_utils import safe_parse
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
@@ -71,7 +72,7 @@ def analyze_message(message: str, profile: PlayerProfile, context: str = "") -> 
     )
 
     raw = response.content[0].text.strip()
-    data = json.loads(raw)
+    data = safe_parse(raw, "profile analysis")
 
     count = profile.observation_count + 1
     updated = PlayerProfile(

@@ -5,6 +5,7 @@ from core.archetype import crystallize
 from core.preferences import WorldPreferences, GamerFocus, GAMER_FOCUS_KEYS
 from core.world_generator import generate
 from core.input_guard import check, validate_world_output
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/world", tags=["world"])
 
@@ -56,6 +57,7 @@ def generate_world(session_id: str, req: GenerateRequest):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
 
     if not game_session.profile.is_ready():
@@ -86,6 +88,7 @@ def generate_world(session_id: str, req: GenerateRequest):
         ),
     )
 
+    record_api_call(session_id)
     world = generate(
         archetype=game_session.archetype,
         preferences=game_session.preferences,

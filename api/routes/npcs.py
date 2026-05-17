@@ -7,6 +7,7 @@ from core.npc_generator import spawn, NPC_ROLES
 from core.npc_dialogue import respond
 from core.profiler import analyze_message
 from core.input_guard import check
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/npcs", tags=["npcs"])
 
@@ -76,6 +77,7 @@ def spawn_npc(session_id: str, req: SpawnRequest):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world(game_session, session_id)
     _ensure_world_state_seeded(game_session)
@@ -102,6 +104,7 @@ def spawn_npc(session_id: str, req: SpawnRequest):
     if req.context_hint:
         req.context_hint = check(req.context_hint, "context_hint")
 
+    record_api_call(session_id)
     npc = spawn(
         role=req.role,
         faction=faction,
@@ -132,6 +135,7 @@ def talk(session_id: str, npc_id: str, req: TalkRequest):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world(game_session, session_id)
     _ensure_world_state_seeded(game_session)
@@ -143,6 +147,7 @@ def talk(session_id: str, npc_id: str, req: TalkRequest):
     history_obj = game_session.npc_history(npc_id)
     safe_message = check(req.message, "player_message")
 
+    record_api_call(session_id)
     reply = respond(
         player_message=safe_message,
         npc=npc,
@@ -163,6 +168,7 @@ def talk(session_id: str, npc_id: str, req: TalkRequest):
             f"Talking to {npc['name']} ({npc['role']}, {npc.get('faction','independent')}) "
             f"in {npc.get('region','unknown')}."
         )
+        record_api_call(session_id)
         game_session.profile = analyze_message(req.message, game_session.profile, context)
 
     return {

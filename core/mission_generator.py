@@ -6,6 +6,7 @@ so the pool drifts naturally as the player evolves.
 """
 
 import json
+from core.json_utils import safe_parse
 import uuid
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
@@ -112,6 +113,7 @@ Aggression:     {_fv(profile.aggression)}
 Morality:       {_fv(profile.morality)}
 Lawfulness:     {_fv(profile.lawfulness)}
 Empathy:        {_fv(profile.empathy)}
+Immersion:      {_fv(profile.immersion)}   (0=gamey, 1=deep roleplayer)
 Deliberateness: {_fv(profile.deliberateness)}
 Sociability:    {_fv(profile.sociability)}
 Deference:      {_fv(profile.deference)}
@@ -154,6 +156,13 @@ Generate {pool_size} missions.
   Low stats (≤3) in a key area mean that approach carries real risk — say so.
 - Match difficulty to stats: if combat=2, don't make all missions high-difficulty
   combat encounters. Surface missions where the player's strengths apply.
+- IMMERSION depth shapes the writing, not the content:
+  High immersion (≥0.65) → descriptions and profile_fit read like a story beat.
+    Give moral weight to even simple tasks. Surface the human cost on both sides.
+    Approach descriptions carry texture — how it feels, not just what happens.
+  Low immersion (≤0.35) → keep it brisk and legible.
+    Short, direct descriptions. The player wants the objective, not the poetry.
+  Mid-range → brief story framing with clear mechanics.
 - Generate IDs as random 8-char hex strings.
 - Use only region and faction names that appear in the world above.
 """.strip()
@@ -168,7 +177,7 @@ Generate {pool_size} missions.
 
     for block in response.content:
         if block.type == "text":
-            missions = json.loads(block.text.strip())
+            missions = safe_parse(block.text, "mission generation")
             for m in missions:
                 if "id" not in m or not m["id"]:
                     m["id"] = uuid.uuid4().hex[:8]

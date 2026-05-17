@@ -7,6 +7,7 @@ from core.mission_generator import generate_pool
 from core.profiler import analyze_message
 from core.resources import calculate_mission_reward, apply_reward
 from core.input_guard import check, validate_missions_output
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/missions", tags=["missions"])
 
@@ -88,10 +89,12 @@ def generate_missions(session_id: str, req: GenerateRequest = GenerateRequest())
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world_ready(game_session, session_id)
     _ensure_world_state_seeded(game_session)
 
+    record_api_call(session_id)
     pool = generate_pool(
         archetype=game_session.archetype,
         profile=game_session.profile,
@@ -130,6 +133,7 @@ def complete_mission(session_id: str, req: CompleteRequest):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world_ready(game_session, session_id)
     _ensure_world_state_seeded(game_session)
@@ -166,6 +170,7 @@ def complete_mission(session_id: str, req: CompleteRequest):
     req.approach_used = safe_approach
     req.notes = safe_notes
     message, context = _build_profile_signal(mission, req)
+    record_api_call(session_id)
     game_session.profile = analyze_message(message, game_session.profile, context)
 
     # 3. Calculate rewards

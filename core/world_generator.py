@@ -11,6 +11,7 @@ Output: a world dict that Godot uses to populate the game.
 """
 
 import json
+from core.json_utils import safe_parse
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
@@ -152,6 +153,15 @@ INSTRUCTIONS
   World/exploration player → mysteries, hidden lore, geography that rewards curiosity.
   Social player → political webs, NPCs with competing agendas, relationship consequences.
   Mission player → clear faction bounties, visible quest hooks, layered objectives.
+- IMMERSION DEPTH ({_fmt(profile.immersion)} — 0=gamey, 1=deep roleplayer):
+  High immersion (≥0.65) → make the world feel lived-in and internally consistent.
+    Every faction has a believable history. Regions have texture beyond function.
+    The setting description should read like prose a novelist would write about a real place.
+    Currency has cultural meaning. Factions have internal contradictions.
+  Low immersion (≤0.35) → keep it clean and legible.
+    Clear allegiances, obvious hooks, practical descriptions over atmospheric ones.
+    Players want to know what to do, not what it smells like.
+  Mid-range → balance atmosphere with clarity.
 - The archetype motifs should appear as recurring symbols in the world.
 """.strip()
 
@@ -165,7 +175,7 @@ INSTRUCTIONS
 
     for block in response.content:
         if block.type == "text":
-            return json.loads(block.text.strip())
+            return safe_parse(block.text, "world generation")
 
     raise RuntimeError("Claude returned no text block during world generation.")
 

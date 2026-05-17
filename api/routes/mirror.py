@@ -4,6 +4,7 @@ import uuid
 from core import session as sessions
 from core.world_state import WorldState
 from core.mirror_generator import generate
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/mirror", tags=["mirror"])
 
@@ -37,6 +38,7 @@ def generate_mirror(session_id: str):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world(game_session)
     _ensure_seeded(game_session)
@@ -56,6 +58,7 @@ def generate_mirror(session_id: str):
             ),
         )
 
+    record_api_call(session_id)
     text = generate(
         profile=game_session.profile,
         archetype=game_session.archetype,

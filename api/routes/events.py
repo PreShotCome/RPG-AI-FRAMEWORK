@@ -7,6 +7,7 @@ from core.world_tick import compute_pressure, events_to_generate, bias_event_typ
 from core.event_generator import generate
 from core.profiler import analyze_message
 from core.input_guard import check
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -74,6 +75,7 @@ def tick(session_id: str):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world(game_session)
     _ensure_seeded(game_session)
@@ -91,6 +93,7 @@ def tick(session_id: str):
     if count > 0:
         suggested_types = bias_event_types(game_session.profile, game_session.preferences)
 
+        record_api_call(session_id)
         raw_events = generate(
             count=count,
             world=game_session.generated_world,
@@ -142,6 +145,7 @@ def respond_to_event(session_id: str, req: RespondRequest):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world(game_session)
 
@@ -170,6 +174,7 @@ def respond_to_event(session_id: str, req: RespondRequest):
         f"World event: '{event['title']}' ({event['type']}). "
         f"Player chose: {option['label']}. Approach: {safe_approach}"
     )
+    record_api_call(session_id)
     game_session.profile = analyze_message(safe_approach, game_session.profile, context)
 
     # Resolve the event

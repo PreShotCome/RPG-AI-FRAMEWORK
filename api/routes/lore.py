@@ -5,6 +5,7 @@ from core import session as sessions
 from core.world_state import WorldState
 from core.lore_generator import discover, LORE_TYPES, TRIGGERS
 from core.input_guard import check
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/lore", tags=["lore"])
 
@@ -67,6 +68,7 @@ def discover_lore(session_id: str, req: DiscoverRequest):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
+    check_rate_limit(session_id)
     game_session = sessions.get(session_id)
     _require_world(game_session)
     _ensure_seeded(game_session)
@@ -93,6 +95,7 @@ def discover_lore(session_id: str, req: DiscoverRequest):
                 detail=f"Unknown faction '{req.faction}'. World factions: {world_factions}",
             )
 
+    record_api_call(session_id)
     entry = discover(
         trigger=req.trigger,
         context=safe_context,

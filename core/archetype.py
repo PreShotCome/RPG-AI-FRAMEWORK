@@ -59,7 +59,8 @@ Observations:   {profile.observation_count}
     for block in response.content:
         if block.type == "text":
             import json
-            return json.loads(block.text.strip())
+from core.json_utils import safe_parse
+            return safe_parse(block.text, "archetype crystallization")
 
     raise RuntimeError("Claude returned no text block for archetype crystallization.")
 
