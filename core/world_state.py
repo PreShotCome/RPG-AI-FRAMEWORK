@@ -84,6 +84,60 @@ class WorldState:
             self.global_tension = max(0.0, min(1.0, self.global_tension * 0.8 + avg * 0.2))
         self.events.append(event)
 
+    def to_dict(self) -> dict:
+        return {
+            "global_tension": self.global_tension,
+            "factions": {
+                name: {"standing": f.standing, "description": f.description}
+                for name, f in self.factions.items()
+            },
+            "regions": {
+                name: {
+                    "tension": r.tension,
+                    "controlling_faction": r.controlling_faction,
+                    "notes": r.notes,
+                }
+                for name, r in self.regions.items()
+            },
+            "events": [
+                {
+                    "id": e.id,
+                    "summary": e.summary,
+                    "mission_id": e.mission_id,
+                    "faction_impacts": e.faction_impacts,
+                    "region_impacts": e.region_impacts,
+                }
+                for e in self.events
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "WorldState":
+        ws = cls()
+        ws.global_tension = data.get("global_tension", 0.3)
+        for name, fd in data.get("factions", {}).items():
+            ws.factions[name] = FactionStanding(
+                name=name,
+                standing=fd.get("standing", 0.0),
+                description=fd.get("description", ""),
+            )
+        for name, rd in data.get("regions", {}).items():
+            ws.regions[name] = RegionState(
+                name=name,
+                tension=rd.get("tension", 0.5),
+                controlling_faction=rd.get("controlling_faction"),
+                notes=rd.get("notes", []),
+            )
+        for ed in data.get("events", []):
+            ws.events.append(WorldEvent(
+                id=ed.get("id", ""),
+                summary=ed.get("summary", ""),
+                mission_id=ed.get("mission_id"),
+                faction_impacts=ed.get("faction_impacts", {}),
+                region_impacts=ed.get("region_impacts", {}),
+            ))
+        return ws
+
     def summary(self) -> dict:
         return {
             "global_tension": round(self.global_tension, 2),

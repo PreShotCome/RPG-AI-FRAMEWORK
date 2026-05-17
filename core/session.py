@@ -13,8 +13,24 @@ Replace the dict with file/DB persistence when the save system is built.
 from dataclasses import dataclass, field
 from typing import Optional
 from core.profile import PlayerProfile
-from core.preferences import WorldPreferences
+from core.preferences import WorldPreferences, GamerFocus
 from core.world_state import WorldState
+
+DIFFICULTIES = ("casual", "regular", "hardcore")
+
+# Which slots each tier can load from
+LOAD_PERMISSIONS: dict[str, set[str]] = {
+    "casual":   {"slot_1", "slot_2", "slot_3", "auto", "glitch"},
+    "regular":  {"day_start", "auto", "glitch"},
+    "hardcore": {"glitch"},
+}
+
+# Which slots each tier can write to
+SAVE_PERMISSIONS: dict[str, set[str]] = {
+    "casual":   {"slot_1", "slot_2", "slot_3", "auto", "glitch"},
+    "regular":  {"day_start", "auto", "glitch"},
+    "hardcore": {"auto", "glitch"},
+}
 
 
 @dataclass
@@ -41,6 +57,9 @@ class GameSession:
     npc_registry: dict[str, dict] = field(default_factory=dict)
     active_events: list[dict] = field(default_factory=list)
     event_log: list[dict] = field(default_factory=list)
+    difficulty: str = "regular"
+    world_name: str = ""
+    in_game_day: int = 1
 
     def npc_history(self, npc_id: str) -> NPCHistory:
         if npc_id not in self.npc_histories:
@@ -49,6 +68,48 @@ class GameSession:
 
     def find_mission(self, mission_id: str) -> Optional[dict]:
         return next((m for m in self.mission_pool if m["id"] == mission_id), None)
+
+    def to_dict(self) -> dict:
+        return {
+            "profile": self.profile.to_dict(),
+            "npc_histories": {
+                npc_id: h.messages for npc_id, h in self.npc_histories.items()
+            },
+            "preferences": self.preferences.to_dict(),
+            "archetype": self.archetype,
+            "generated_world": self.generated_world,
+            "world_state": self.world_state.to_dict(),
+            "mission_pool": self.mission_pool,
+            "mission_history": self.mission_history,
+            "npc_registry": self.npc_registry,
+            "active_events": self.active_events,
+            "event_log": self.event_log,
+            "difficulty": self.difficulty,
+            "world_name": self.world_name,
+            "in_game_day": self.in_game_day,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "GameSession":
+        session = cls()
+        session.profile = PlayerProfile.from_dict(data["profile"])
+        session.npc_histories = {
+            npc_id: NPCHistory(messages=msgs)
+            for npc_id, msgs in data.get("npc_histories", {}).items()
+        }
+        session.preferences = WorldPreferences.from_dict(data.get("preferences", {}))
+        session.archetype = data.get("archetype")
+        session.generated_world = data.get("generated_world")
+        session.world_state = WorldState.from_dict(data.get("world_state", {}))
+        session.mission_pool = data.get("mission_pool", [])
+        session.mission_history = data.get("mission_history", [])
+        session.npc_registry = data.get("npc_registry", {})
+        session.active_events = data.get("active_events", [])
+        session.event_log = data.get("event_log", [])
+        session.difficulty = data.get("difficulty", "regular")
+        session.world_name = data.get("world_name", "")
+        session.in_game_day = data.get("in_game_day", 1)
+        return session
 
 
 _store: dict[str, GameSession] = {}

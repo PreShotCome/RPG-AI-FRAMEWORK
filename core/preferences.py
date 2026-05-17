@@ -40,6 +40,10 @@ class GamerFocus:
     def to_dict(self) -> dict:
         return {k: getattr(self, k) for k in GAMER_FOCUS_KEYS}
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "GamerFocus":
+        return cls(**{k: data.get(k, 0.0) for k in GAMER_FOCUS_KEYS})
+
 
 @dataclass
 class WorldPreferences:
@@ -58,3 +62,10 @@ class WorldPreferences:
             "world_style": self.world_style,
             "gamer_focus": self.gamer_focus.to_dict(),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "WorldPreferences":
+        return cls(
+            world_style=data.get("world_style", ""),
+            gamer_focus=GamerFocus.from_dict(data.get("gamer_focus", {})),
+        )
