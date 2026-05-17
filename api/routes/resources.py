@@ -6,6 +6,7 @@ from core.resources import (
     PlayerStats, PlayerInventory, STAT_KEYS, STAT_MAX,
     calculate_mission_reward, apply_reward,
 )
+from core.events_ws import broadcast_sync
 
 router = APIRouter(prefix="/resources", tags=["resources"])
 
@@ -162,6 +163,12 @@ def earn(session_id: str, req: EarnRequest):
     for faction, amount in req.faction_tokens.items():
         game_session.inventory.earn_faction_token(faction, amount)
 
+    broadcast_sync(session_id, "inventory_update", {
+        "currency": game_session.inventory.currency,
+        "currency_name": game_session.inventory.currency_name,
+        "faction_tokens": game_session.inventory.faction_tokens,
+        "items": game_session.inventory.items,
+    })
     return {
         "session_id": session_id,
         "earned": {"currency": req.currency, "faction_tokens": req.faction_tokens},
@@ -203,6 +210,12 @@ def spend(session_id: str, req: SpendRequest):
     for faction, amount in req.faction_tokens.items():
         game_session.inventory.spend_faction_token(faction, amount)
 
+    broadcast_sync(session_id, "inventory_update", {
+        "currency": game_session.inventory.currency,
+        "currency_name": game_session.inventory.currency_name,
+        "faction_tokens": game_session.inventory.faction_tokens,
+        "items": game_session.inventory.items,
+    })
     return {
         "session_id": session_id,
         "spent": {"currency": req.currency, "faction_tokens": req.faction_tokens},
@@ -243,6 +256,13 @@ def upgrade_stat(session_id: str, req: UpgradeRequest):
     new_level = game_session.stats.upgrade(stat)
     flavors = _stat_flavors(game_session)
 
+    broadcast_sync(session_id, "stat_update", {"stats": game_session.stats.to_dict()})
+    broadcast_sync(session_id, "inventory_update", {
+        "currency": game_session.inventory.currency,
+        "currency_name": game_session.inventory.currency_name,
+        "faction_tokens": game_session.inventory.faction_tokens,
+        "items": game_session.inventory.items,
+    })
     return {
         "session_id": session_id,
         "upgraded": stat,

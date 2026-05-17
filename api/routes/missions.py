@@ -7,6 +7,7 @@ from core.mission_generator import generate_pool
 from core.profiler import analyze_message
 from core.resources import calculate_mission_reward, apply_reward
 from core.input_guard import check, validate_missions_output
+from core.events_ws import broadcast_sync
 from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/missions", tags=["missions"])
@@ -180,6 +181,12 @@ def complete_mission(session_id: str, req: CompleteRequest):
 
     if req.apply_rewards and game_session.resources_initialized:
         apply_reward(game_session.inventory, reward)
+        broadcast_sync(session_id, "inventory_update", {
+            "currency": game_session.inventory.currency,
+            "currency_name": game_session.inventory.currency_name,
+            "faction_tokens": game_session.inventory.faction_tokens,
+            "items": game_session.inventory.items,
+        })
 
     # 4. Move mission to history
     history_entry = {

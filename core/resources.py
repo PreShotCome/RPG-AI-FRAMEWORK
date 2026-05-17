@@ -85,6 +85,17 @@ class PlayerInventory:
     currency: float = 0.0
     faction_tokens: dict[str, int] = field(default_factory=dict)
     currency_name: str = "gold"  # set from world on initialize
+    items: list[dict] = field(default_factory=list)
+
+    def add_item(self, item: dict) -> None:
+        self.items.append(item)
+
+    def remove_item(self, item_id: str) -> bool:
+        for i, item in enumerate(self.items):
+            if item.get("id") == item_id:
+                self.items.pop(i)
+                return True
+        return False
 
     def earn_currency(self, amount: float) -> None:
         self.currency += amount
@@ -110,6 +121,7 @@ class PlayerInventory:
             "currency": round(self.currency, 2),
             "currency_name": self.currency_name,
             "faction_tokens": dict(self.faction_tokens),
+            "items": self.items,
         }
 
     @classmethod
@@ -119,6 +131,7 @@ class PlayerInventory:
             currency_name=data.get("currency_name", "gold"),
         )
         inv.faction_tokens = data.get("faction_tokens", {})
+        inv.items = data.get("items", [])
         return inv
 
 
