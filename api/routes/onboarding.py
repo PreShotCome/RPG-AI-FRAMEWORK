@@ -55,7 +55,10 @@ def respond(session_id: str, req: RespondRequest):
     safe_message = check(req.message, "player_message")
     check_rate_limit(session_id)
 
-    result = converse(safe_message, game_session.facility_history, game_session.profile)
+    try:
+        result = converse(safe_message, game_session.facility_history, game_session.profile)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Architect error: {e}")
     record_api_call(session_id)
 
     # Update conversation history
