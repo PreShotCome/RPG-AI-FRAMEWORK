@@ -21,8 +21,8 @@ extends Control
 @onready var scroll_container: ScrollContainer = $VBoxContainer/ScrollContainer
 @onready var player_input: LineEdit = $VBoxContainer/InputRow/PlayerInput
 @onready var send_button: Button = $VBoxContainer/InputRow/SendButton
-@onready var ready_banner: Panel = $ReadyBanner
-@onready var generate_button: Button = $ReadyBanner/GenerateButton
+@onready var ready_banner: PanelContainer = $ReadyBanner
+@onready var generate_button: Button = $ReadyBanner/VBoxContainer/GenerateButton
 
 var _waiting := false
 var _ready_to_generate := false
@@ -95,12 +95,11 @@ func _on_generate() -> void:
 
 	GameState.onboarding_stage = "options"
 
-	# Hand off to WorldChoice scene
-	get_tree().change_scene_to_file("res://scenes/onboarding/WorldChoiceScreen.tscn")
-
-	# Pass data through a singleton so WorldChoice can read it
+	# Set transfer data BEFORE changing scene
 	_WorldTransfer.options = data["options"]
 	_WorldTransfer.facility_message = data["facility_message"]
+
+	get_tree().change_scene_to_file("res://scenes/onboarding/WorldChoiceScreen.tscn")
 
 
 # ── Message builders ──────────────────────────────────────────────────────────
