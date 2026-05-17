@@ -12,6 +12,7 @@ from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
 from core.preferences import WorldPreferences
 from core.world_state import WorldState
+from core.resources import PlayerStats, STAT_KEYS
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -79,6 +80,7 @@ def generate_pool(
     world_state: WorldState,
     history: list[dict],
     pool_size: int = 4,
+    stats: PlayerStats | None = None,
 ) -> list[dict]:
     """Generate a fresh mission pool. Uses extended thinking for coherence."""
 
@@ -120,6 +122,9 @@ Primary: {top_focus[0]} ({focus[top_focus[0]]:.0%})
 Secondary: {top_focus[1]} ({focus[top_focus[1]]:.0%})
 Full weights — story:{focus['story']:.0%} world:{focus['world']:.0%} missions:{focus['missions']:.0%} combat:{focus['combat']:.0%} social:{focus['social']:.0%}
 
+PLAYER STATS (1-10 — what they're actually capable of)
+{_fmt_stats(stats, world)}
+
 MISSION HISTORY (last {len(recent_history)} completed)
 {_fmt_history(recent_history)}
 
@@ -139,6 +144,16 @@ Generate {pool_size} missions.
   A chaotic player gets missions that let them destabilize entrenched power.
 - The archetype motifs ({', '.join(archetype['motifs'])}) should appear subtly
   in at least two missions — as symbols, NPC names, or situation echoes.
+- Stats shape what approaches are genuinely viable:
+    combat ≥6 → describe combat approaches as effective, not just possible
+    stealth ≥6 → infiltration/ghost routes are a real option
+    persuasion ≥6 → social approaches can resolve what force cannot
+    intellect ≥6 → investigation angles, pattern recognition, information plays
+    endurance ≥6 → high-difficulty missions are within reach; attrition works
+    luck ≥6 → surface at least one approach that involves opportunism or chance
+  Low stats (≤3) in a key area mean that approach carries real risk — say so.
+- Match difficulty to stats: if combat=2, don't make all missions high-difficulty
+  combat encounters. Surface missions where the player's strengths apply.
 - Generate IDs as random 8-char hex strings.
 - Use only region and faction names that appear in the world above.
 """.strip()
@@ -193,3 +208,16 @@ def _fmt_history(history: list[dict]) -> str:
 
 def _fv(val: float | None) -> str:
     return f"{val:.2f}" if val is not None else "unknown"
+
+
+def _fmt_stats(stats: PlayerStats | None, world: dict) -> str:
+    if stats is None:
+        return "  (not yet initialized)"
+    flavors = world.get("stat_flavors", {})
+    lines = []
+    for key in STAT_KEYS:
+        level = getattr(stats, key)
+        display = flavors.get(key, key.title())
+        bar = "█" * level + "░" * (10 - level)
+        lines.append(f"  {display:15} {bar} {level}/10")
+    return "\n".join(lines)

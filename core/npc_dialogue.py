@@ -10,6 +10,7 @@ import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
 from core.world_state import WorldState
+from core.resources import PlayerStats, STAT_KEYS
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -49,6 +50,7 @@ def _build_system_prompt(
     world: dict,
     world_state: WorldState,
     mission_history: list[dict],
+    stats: PlayerStats | None = None,
 ) -> str:
     standing_label, standing_val = _standing_label(npc, world_state)
     relevant = _relevant_missions(npc, mission_history)
@@ -92,6 +94,8 @@ def _build_system_prompt(
         r = world_state.regions[region]
         region_info = f"The {region} is currently at tension level {r.tension:.2f} — {'calm' if r.tension < 0.4 else 'tense' if r.tension < 0.7 else 'on the edge of violence'}."
 
+    stat_context = _fmt_stat_context(stats, world, npc)
+
     return f"""
 You are {npc['name']}, a {npc['role']} affiliated with {npc.get('faction', 'no faction')}, living in {npc.get('region', 'unknown')}.
 
@@ -110,6 +114,8 @@ Faction standing: {standing_label} ({standing_val:+.0f})
 
 {archetype_context}
 
+{stat_context}
+
 {mission_context}
 
 {region_info}
@@ -121,7 +127,56 @@ RULES
 - You can lie, deflect, or refuse to answer — but do it as your character, not as an AI declining.
 - Keep responses to 2-4 sentences unless the moment demands more. This is dialogue, not monologue.
 - You may offer hooks, hints, or missions naturally — but only when it fits the conversation.
+- Let the player's capabilities colour how you read them. A highly capable fighter commands different respect than a green one.
 """.strip()
+
+
+def _fmt_stat_context(stats: PlayerStats | None, world: dict, npc: dict) -> str:
+    if stats is None:
+        return ""
+    flavors = world.get("stat_flavors", {})
+
+    # Build a readable capability summary — only mention notable levels
+    highs = [(k, getattr(stats, k)) for k in STAT_KEYS if getattr(stats, k) >= 6]
+    lows  = [(k, getattr(stats, k)) for k in STAT_KEYS if getattr(stats, k) <= 3]
+
+    lines = ["WHAT YOU CAN READ ABOUT THE PLAYER"]
+
+    if highs:
+        high_desc = ", ".join(
+            f"{flavors.get(k, k.title())} {v}/10" for k, v in highs
+        )
+        lines.append(f"Notably capable: {high_desc}")
+        lines.append(
+            "High combat → they move with practised confidence; fighters notice."
+            if any(k == "combat" for k, _ in highs) else ""
+        )
+        lines.append(
+            "High persuasion → they have a way with words; you find yourself slightly more open."
+            if any(k == "persuasion" for k, _ in highs) else ""
+        )
+        lines.append(
+            "High intellect → sharp eyes, asks precise questions; they pick up on things."
+            if any(k == "intellect" for k, _ in highs) else ""
+        )
+        lines.append(
+            "High stealth → they're hard to read, give little away; unsettling in a quiet way."
+            if any(k == "stealth" for k, _ in highs) else ""
+        )
+        lines.append(
+            "High endurance → they look like someone who has survived a lot; weathered."
+            if any(k == "endurance" for k, _ in highs) else ""
+        )
+
+    if lows:
+        low_desc = ", ".join(
+            f"{flavors.get(k, k.title())} {v}/10" for k, v in lows
+        )
+        lines.append(f"Noticeably weak: {low_desc} — they're not hiding it.")
+
+    # Remove empty strings
+    lines = [l for l in lines if l]
+    return "\n".join(lines) if len(lines) > 1 else ""
 
 
 def respond(
@@ -133,9 +188,10 @@ def respond(
     world: dict,
     world_state: WorldState,
     mission_history: list[dict],
+    stats: PlayerStats | None = None,
 ) -> str:
     """Generate the NPC's response to the player's message."""
-    system = _build_system_prompt(npc, player, archetype, world, world_state, mission_history)
+    system = _build_system_prompt(npc, player, archetype, world, world_state, mission_history, stats)
 
     # Truncate history to avoid runaway context
     messages = history[-_MAX_HISTORY:] + [{"role": "user", "content": player_message}]

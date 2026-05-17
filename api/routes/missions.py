@@ -99,6 +99,7 @@ def generate_missions(session_id: str, req: GenerateRequest = GenerateRequest())
         world_state=game_session.world_state,
         history=game_session.mission_history,
         pool_size=req.pool_size,
+        stats=game_session.stats if game_session.resources_initialized else None,
     )
     game_session.mission_pool = pool
 

@@ -147,6 +147,7 @@ def talk(session_id: str, npc_id: str, req: TalkRequest):
         world=game_session.generated_world,
         world_state=game_session.world_state,
         mission_history=game_session.mission_history,
+        stats=game_session.stats if game_session.resources_initialized else None,
     )
 
     history_obj.add("user", req.message)
