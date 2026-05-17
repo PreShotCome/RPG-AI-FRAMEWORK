@@ -39,6 +39,8 @@ class GameSession:
     mission_pool: list[dict] = field(default_factory=list)
     mission_history: list[dict] = field(default_factory=list)
     npc_registry: dict[str, dict] = field(default_factory=dict)
+    active_events: list[dict] = field(default_factory=list)
+    event_log: list[dict] = field(default_factory=list)
 
     def npc_history(self, npc_id: str) -> NPCHistory:
         if npc_id not in self.npc_histories:
