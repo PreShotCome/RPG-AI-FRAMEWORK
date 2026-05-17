@@ -6,7 +6,7 @@ extends Node
 # ── Session ───────────────────────────────────────────────────────────────────
 
 var session_id: String = ""
-var onboarding_stage: String = "facility"   # "facility" | "options" | "complete"
+var onboarding_stage: String = "facility"
 
 # ── World ─────────────────────────────────────────────────────────────────────
 
@@ -14,18 +14,11 @@ var world: Dictionary = {}
 var archetype: Dictionary = {}
 var preferences: Dictionary = {}
 
-# Quick accessors (populated after world is chosen)
-var world_name: String:
-	get: return world.get("name", "")
-
-var currency_name: String:
-	get: return world.get("currency", {}).get("name", "Gold")
-
-var currency_symbol: String:
-	get: return world.get("currency", {}).get("symbol", "G")
-
-var stat_flavors: Dictionary:
-	get: return world.get("stat_flavors", {})
+# Flat vars updated when world is chosen — avoids computed property conflicts
+var world_name: String = ""
+var currency_name: String = "Gold"
+var currency_symbol: String = "G"
+var stat_flavors: Dictionary = {}
 
 # ── Player ────────────────────────────────────────────────────────────────────
 
@@ -33,18 +26,9 @@ var stats: Dictionary = {}
 var inventory: Dictionary = {}
 var profile: Dictionary = {}
 
-# Convenience
-var currency: float:
-	get: return inventory.get("currency", 0.0)
-
-var faction_tokens: Dictionary:
-	get: return inventory.get("faction_tokens", {})
-
-func stat(key: String) -> int:
-	return stats.get(key, 1)
-
-func stat_display_name(key: String) -> String:
-	return stat_flavors.get(key, key.capitalize())
+# Flat vars updated when resources change
+var currency: float = 0.0
+var faction_tokens: Dictionary = {}
 
 # ── Missions ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +37,7 @@ var mission_history: Array = []
 
 # ── NPCs ──────────────────────────────────────────────────────────────────────
 
-var npc_registry: Dictionary = {}   # npc_id → npc dict
+var npc_registry: Dictionary = {}
 
 # ── Events ────────────────────────────────────────────────────────────────────
 
@@ -64,7 +48,7 @@ var active_events: Array = []
 var world_state: Dictionary = {}
 var in_game_day: int = 1
 
-# ── Signals (broadcast to any scene that cares) ───────────────────────────────
+# ── Signals ───────────────────────────────────────────────────────────────────
 
 signal world_loaded(world: Dictionary)
 signal resources_updated(stats: Dictionary, inventory: Dictionary)
@@ -73,26 +57,46 @@ signal npc_spawned(npc: Dictionary)
 signal active_events_updated(events: Array)
 signal world_state_updated(state: Dictionary)
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+func stat(key: String) -> int:
+	return stats.get(key, 1)
+
+func stat_display_name(key: String) -> String:
+	return stat_flavors.get(key, key.capitalize())
+
+func has_world() -> bool:
+	return not world.is_empty()
+
 # ── Mutators ──────────────────────────────────────────────────────────────────
 
 func apply_world_choice(data: Dictionary) -> void:
 	world = data.get("world", {})
 	archetype = data.get("archetype", {})
 	onboarding_stage = "complete"
+
+	world_name = world.get("name", "")
+	var cur: Dictionary = world.get("currency", {})
+	currency_name = cur.get("name", "Gold")
+	currency_symbol = cur.get("symbol", "G")
+	stat_flavors = world.get("stat_flavors", {})
+
 	world_loaded.emit(world)
 
 
 func apply_resources(data: Dictionary) -> void:
 	stats = data.get("stats", stats)
 	inventory = data.get("inventory", inventory)
+	currency = inventory.get("currency", 0.0)
+	faction_tokens = inventory.get("faction_tokens", {})
 	resources_updated.emit(stats, inventory)
 
 
 func apply_mission_result(data: Dictionary) -> void:
 	if data.has("inventory"):
 		inventory = data["inventory"]
-	if data.has("reward"):
-		pass  # reward already in inventory
+		currency = inventory.get("currency", 0.0)
+		faction_tokens = inventory.get("faction_tokens", {})
 	resources_updated.emit(stats, inventory)
 
 
@@ -123,19 +127,21 @@ func apply_events(data: Dictionary) -> void:
 	active_events_updated.emit(active_events)
 
 
-func has_world() -> bool:
-	return not world.is_empty()
-
-
 func clear() -> void:
 	session_id = ""
 	onboarding_stage = "facility"
 	world = {}
 	archetype = {}
 	preferences = {}
+	world_name = ""
+	currency_name = "Gold"
+	currency_symbol = "G"
+	stat_flavors = {}
 	stats = {}
 	inventory = {}
 	profile = {}
+	currency = 0.0
+	faction_tokens = {}
 	mission_pool = []
 	mission_history = []
 	npc_registry = {}
