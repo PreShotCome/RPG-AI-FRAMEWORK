@@ -1,181 +1,223 @@
-import anthropic
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from config import ANTHROPIC_API_KEY, TRAINING_WORLD_MAX_LEVEL, MISSIONS_TO_UNLOCK_ACT
-from core.save_system import load_game, save_game
-from core.player_profile import PlayerProfile
-from core.npc_system import get_npc
-from core.mission_generator import (
-    get_training_missions,
-    generate_npc_mission,
-    generate_campaign_mission,
-)
-from core.campaign_manager import check_act_unlock, get_campaign_progress
+from pydantic import BaseModel, field_validator
+from typing import Optional
+from core import session as sessions
+from core.world_state import WorldState, WorldEvent
+from core.mission_generator import generate_pool
+from core.profiler import analyze_message
+from core.resources import calculate_mission_reward, apply_reward
+from core.input_guard import check, validate_missions_output
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/missions", tags=["missions"])
-_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+
+_POOL_SIZE = 4
 
 
-class GenerateFromNPCRequest(BaseModel):
-    save_id: str
-    npc_id: str
+# ── Request / Response models ──────────────────────────────────────────────────
+
+class GenerateRequest(BaseModel):
+    # Godot can request a specific size; defaults to 4
+    pool_size: int = _POOL_SIZE
+
+    @field_validator("pool_size")
+    @classmethod
+    def valid_size(cls, v: int) -> int:
+        if not (1 <= v <= 8):
+            raise ValueError("pool_size must be between 1 and 8")
+        return v
 
 
-class GenerateCampaignRequest(BaseModel):
-    save_id: str
-    act: int
-    mission_index: int
-
-
-class AcceptMissionRequest(BaseModel):
-    save_id: str
-    mission: dict
-
-
-class CompleteMissionRequest(BaseModel):
-    save_id: str
+class CompleteRequest(BaseModel):
     mission_id: str
-    xp_gained: int = 50
+    outcome: str                      # "success" | "failure" | "partial"
+    approach_used: str                # free-text — how the player actually did it
+    notes: Optional[str] = None       # optional extra context for profile update
+    apply_rewards: bool = True        # set False if Godot wants to apply manually
+
+    @field_validator("outcome")
+    @classmethod
+    def valid_outcome(cls, v: str) -> str:
+        if v not in ("success", "failure", "partial"):
+            raise ValueError("outcome must be success, failure, or partial")
+        return v
 
 
-@router.get("/available/{save_id}")
-async def get_available_missions(save_id: str):
-    """Return currently available missions for the player."""
-    save = load_game(save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-    profile = PlayerProfile.from_dict(save.profile)
-    completed_ids = {m.get("id") for m in save.completed_missions}
+def _require_world_ready(game_session, session_id: str):
+    if game_session.generated_world is None:
+        raise HTTPException(
+            status_code=400,
+            detail="World not generated yet. Call POST /world/{session_id}/generate first.",
+        )
+    if game_session.archetype is None:
+        raise HTTPException(status_code=400, detail="Archetype missing — regenerate the world.")
 
-    if profile.level <= TRAINING_WORLD_MAX_LEVEL:
-        training = get_training_missions()
-        available = [m for m in training if m["id"] not in completed_ids]
-        return {
-            "missions": available,
-            "is_training": True,
-            "campaign_progress": None,
-        }
 
-    progress = get_campaign_progress(save.completed_missions)
+def _ensure_world_state_seeded(game_session) -> None:
+    """Seed WorldState from the generated world the first time missions are touched."""
+    if not game_session.world_state.factions and game_session.generated_world:
+        game_session.world_state = WorldState.from_generated_world(game_session.generated_world)
+
+
+def _build_profile_signal(mission: dict, req: CompleteRequest) -> tuple[str, str]:
+    """
+    Build the (message, context) pair for analyze_message.
+    The approach_used is the behavioural signal; context grounds it.
+    """
+    context = (
+        f"Mission '{mission['title']}' ({mission['type']}, {mission.get('difficulty','?')} difficulty). "
+        f"Outcome: {req.outcome}."
+    )
+    if req.notes:
+        context += f" {req.notes}"
+    return req.approach_used, context
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.post("/{session_id}/generate")
+def generate_missions(session_id: str, req: GenerateRequest = GenerateRequest()):
+    """
+    Generate a fresh mission pool for this session.
+
+    Reads the live profile, world state, and mission history — so results
+    evolve naturally as the player progresses. Safe to call at any time;
+    replaces the current pool.
+    """
+    if not sessions.exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    check_rate_limit(session_id)
+    game_session = sessions.get(session_id)
+    _require_world_ready(game_session, session_id)
+    _ensure_world_state_seeded(game_session)
+
+    record_api_call(session_id)
+    pool = generate_pool(
+        archetype=game_session.archetype,
+        profile=game_session.profile,
+        preferences=game_session.preferences,
+        world=game_session.generated_world,
+        world_state=game_session.world_state,
+        history=game_session.mission_history,
+        pool_size=req.pool_size,
+        stats=game_session.stats if game_session.resources_initialized else None,
+    )
+    try:
+        validate_missions_output(pool)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"Mission generation failed validation: {e}")
+    game_session.mission_pool = pool
+
     return {
-        "missions": save.active_missions,
-        "is_training": False,
-        "campaign_progress": progress,
-        "completed_count": len(save.completed_missions),
+        "session_id": session_id,
+        "pool": pool,
+        "world_state": game_session.world_state.summary(),
     }
 
 
-@router.post("/generate-from-npc")
-async def gen_from_npc(req: GenerateFromNPCRequest):
-    """Ask an NPC for a new side mission."""
-    save = load_game(req.save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
+@router.post("/{session_id}/complete")
+def complete_mission(session_id: str, req: CompleteRequest):
+    """
+    Mark a mission complete and feed the outcome back into the world.
 
-    npc = get_npc(req.npc_id)
-    if not npc:
-        raise HTTPException(status_code=404, detail=f"NPC '{req.npc_id}' not found")
+    Three things happen:
+      1. World state updates — factions and regions shift per mission's impact values.
+      2. Profile updates — the approach used is fed in as a behavioural observation.
+      3. Mission moves from pool to history.
 
-    profile = PlayerProfile.from_dict(save.profile)
+    Godot should call POST /missions/{id}/generate after this to get a refreshed pool.
+    """
+    if not sessions.exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
 
-    world_context = ""
-    if save.world_state:
-        ws = save.world_state
-        world_context = f"{ws.get('name', '')}: {ws.get('central_conflict', '')}"
-    else:
-        world_context = "The village of Thistlemoor and the surrounding countryside."
+    check_rate_limit(session_id)
+    game_session = sessions.get(session_id)
+    _require_world_ready(game_session, session_id)
+    _ensure_world_state_seeded(game_session)
 
-    mission = await generate_npc_mission(
-        req.npc_id,
-        npc.get("role", "villager"),
-        profile,
-        world_context,
-        _client,
-    )
-    return {"mission": mission}
+    safe_approach = check(req.approach_used, "approach")
+    safe_notes = check(req.notes, "notes") if req.notes else None
 
-
-@router.post("/generate-campaign")
-async def gen_campaign(req: GenerateCampaignRequest):
-    """Generate a campaign mission for a given act and position."""
-    save = load_game(req.save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
-
-    profile = PlayerProfile.from_dict(save.profile)
-
-    if not profile.checkpoint_reached:
+    mission = game_session.find_mission(req.mission_id)
+    if mission is None:
         raise HTTPException(
-            status_code=403,
-            detail="Campaign missions only available after checkpoint (level 10+).",
+            status_code=404,
+            detail=f"Mission {req.mission_id} not found in current pool.",
         )
 
-    if req.act > 0 and not check_act_unlock(save.completed_missions, req.act - 1):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Act {req.act + 1} not yet unlocked. Complete {MISSIONS_TO_UNLOCK_ACT} campaign missions in Act {req.act}.",
-        )
+    # 1. Apply world state changes
+    # On failure, invert or dampen the intended faction impacts
+    impact_scale = 1.0 if req.outcome == "success" else (-0.5 if req.outcome == "failure" else 0.4)
 
-    mission = await generate_campaign_mission(
-        req.act, req.mission_index, profile, save.world_state, _client
+    event = WorldEvent(
+        mission_id=req.mission_id,
+        summary=f"{req.outcome.title()}: {mission['title']} ({safe_approach})",
+        faction_impacts={
+            name: delta * impact_scale
+            for name, delta in mission.get("faction_impact", {}).items()
+        },
+        region_impacts={
+            name: delta * impact_scale
+            for name, delta in mission.get("region_tension_impact", {}).items()
+        },
     )
-    return {"mission": mission}
+    game_session.world_state.apply_event(event)
 
+    # 2. Update the profile with the behavioural signal — same pipeline as NPC dialogue
+    req.approach_used = safe_approach
+    req.notes = safe_notes
+    message, context = _build_profile_signal(mission, req)
+    record_api_call(session_id)
+    game_session.profile = analyze_message(message, game_session.profile, context)
 
-@router.post("/accept")
-async def accept_mission(req: AcceptMissionRequest):
-    """Add a mission to the player's active list."""
-    save = load_game(req.save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
+    # 3. Calculate rewards
+    giver_faction = mission.get("giver", {}).get("faction", "")
+    difficulty = mission.get("difficulty", "medium")
+    reward = calculate_mission_reward(difficulty, req.outcome, giver_faction)
 
-    existing_ids = {m.get("id") for m in save.active_missions}
-    if req.mission.get("id") not in existing_ids:
-        save.active_missions.append(req.mission)
-        save_game(save)
+    if req.apply_rewards and game_session.resources_initialized:
+        apply_reward(game_session.inventory, reward)
 
-    return {"status": "accepted", "mission_id": req.mission.get("id")}
+    # 4. Move mission to history
+    history_entry = {
+        **mission,
+        "outcome": req.outcome,
+        "approach_used": req.approach_used,
+        "notes": req.notes,
+        "reward": reward,
+    }
+    game_session.mission_history.append(history_entry)
+    game_session.mission_pool = [m for m in game_session.mission_pool if m["id"] != req.mission_id]
 
-
-@router.post("/complete")
-async def complete_mission(req: CompleteMissionRequest):
-    """Mark a mission complete and level up the player."""
-    save = load_game(req.save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
-
-    profile = PlayerProfile.from_dict(save.profile)
-
-    # Move mission from active to completed
-    mission = next((m for m in save.active_missions if m.get("id") == req.mission_id), None)
-    if not mission:
-        # Could be a training mission
-        training = get_training_missions()
-        mission = next((m for m in training if m.get("id") == req.mission_id), None)
-
-    if mission:
-        if mission not in save.completed_missions:
-            save.completed_missions.append(mission)
-        save.active_missions = [m for m in save.active_missions if m.get("id") != req.mission_id]
-
-    # Level up
-    old_level = profile.level
-    profile.level += 1
-
-    save.profile = profile.to_dict()
-    save_game(save)
-
-    result = {
-        "status": "completed",
-        "mission_id": req.mission_id,
-        "old_level": old_level,
-        "new_level": profile.level,
-        "xp_gained": req.xp_gained,
+    return {
+        "session_id": session_id,
+        "completed": history_entry,
+        "reward": reward,
+        "rewards_applied": req.apply_rewards and game_session.resources_initialized,
+        "inventory": game_session.inventory.to_dict() if game_session.resources_initialized else None,
+        "world_state": game_session.world_state.summary(),
+        "profile_observations": game_session.profile.observation_count,
+        "pool_remaining": len(game_session.mission_pool),
+        "suggest_regenerate": len(game_session.mission_pool) <= 1,
     }
 
-    if old_level < TRAINING_WORLD_MAX_LEVEL and profile.level >= TRAINING_WORLD_MAX_LEVEL:
-        result["checkpoint_ready"] = True
-        result["message"] = "You have reached the threshold. The world watches you differently now."
 
-    return result
+@router.get("/{session_id}")
+def get_missions(session_id: str):
+    """Current mission pool, history summary, and world state."""
+    if not sessions.exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    game_session = sessions.get(session_id)
+
+    return {
+        "session_id": session_id,
+        "pool": game_session.mission_pool,
+        "history_count": len(game_session.mission_history),
+        "history": game_session.mission_history,
+        "world_state": game_session.world_state.summary(),
+        "profile_observations": game_session.profile.observation_count,
+    }

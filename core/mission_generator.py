@@ -1,180 +1,232 @@
+"""
+Mission generator — produces a pool of contextually appropriate missions.
+
+Every generation reads the live profile, world state, and mission history,
+so the pool drifts naturally as the player evolves.
+"""
+
 import json
-import random
+from core.json_utils import safe_parse
+import uuid
 import anthropic
-from pathlib import Path
-from config import MODEL
-from core.player_profile import PlayerProfile
+from config import ANTHROPIC_API_KEY, MODEL
+from core.profile import PlayerProfile
+from core.preferences import WorldPreferences
+from core.world_state import WorldState
+from core.resources import PlayerStats, STAT_KEYS
 
-_mission_templates: dict | None = None
+_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-def _load_templates() -> dict:
-    global _mission_templates
-    if _mission_templates is None:
-        with open(Path("data/mission_templates.json")) as f:
-            _mission_templates = json.load(f)
-    return _mission_templates
+MISSION_TYPES = [
+    "combat",        # eliminate, defend, assault
+    "investigation", # uncover, expose, gather intel
+    "social",        # negotiate, manipulate, forge alliances
+    "exploration",   # discover, map, recover lost things
+    "heist",         # steal, infiltrate, sabotage
+    "delivery",      # escort, transport, courier under pressure
+]
 
-def get_training_missions() -> list[dict]:
-    with open(Path("data/training_world.json")) as f:
-        world = json.load(f)
-    return world.get("campaign_missions", [])
+_SYSTEM = """
+You are a mission designer for a living RPG world. You generate a pool of missions
+that feel handcrafted for this specific player and world moment.
 
-async def generate_npc_mission(
-    npc_id: str,
-    npc_role: str,
+Return ONLY a valid JSON array of mission objects — no explanation, no markdown fences.
+
+Each mission must:
+- Fit naturally into the current world state and faction tensions
+- Suit the player's psychological profile (not just their stated preferences)
+- Offer at least two meaningfully different approaches
+- Have real consequences for factions and regions
+
+Mission schema (generate exactly the count requested):
+{
+  "id": "<8-char hex string>",
+  "title": "<evocative, specific title>",
+  "type": "<combat|investigation|social|exploration|heist|delivery>",
+  "giver": {
+    "name": "<NPC name>",
+    "faction": "<faction name or 'independent'>",
+    "tone": "<how they speak and why they need this done>"
+  },
+  "summary": "<one sentence — what the player is asked to do>",
+  "description": "<2-3 sentences — full context, what's at stake, the texture of the situation>",
+  "location": "<region name from the world>",
+  "approaches": [
+    {"method": "<approach name>", "description": "<how this works>"},
+    {"method": "<approach name>", "description": "<how this works>"}
+  ],
+  "stakes": {
+    "success": "<what changes in the world if this succeeds>",
+    "failure": "<what changes if it fails>",
+    "moral_weight": "<the ethical tension — what makes this complicated>"
+  },
+  "faction_impact": {
+    "<faction_name>": <float -30 to +30>,
+    ...
+  },
+  "region_tension_impact": {
+    "<region_name>": <float -0.2 to +0.2>
+  },
+  "difficulty": "<low|medium|high>",
+  "profile_fit": "<one sentence: why this mission was chosen for this specific player>"
+}
+"""
+
+
+def generate_pool(
+    archetype: dict,
     profile: PlayerProfile,
-    world_context: str,
-    client: anthropic.AsyncAnthropic,
-) -> dict:
-    """Generate a side mission from an NPC, tailored to the player's profile."""
+    preferences: WorldPreferences,
+    world: dict,
+    world_state: WorldState,
+    history: list[dict],
+    pool_size: int = 4,
+    stats: PlayerStats | None = None,
+) -> list[dict]:
+    """Generate a fresh mission pool. Uses extended thinking for coherence."""
 
-    templates = _load_templates()
-    role_missions = templates["npc_role_mission_map"].get(npc_role, ["investigation"])
+    recent_history = history[-6:] if history else []
+    completed_types = [m.get("type") for m in recent_history]
+    completed_locations = [m.get("location") for m in recent_history]
 
-    # Pick mission types that align with player profile
-    top_themes = profile.get_top_themes(2)
-    playstyle = profile.get_dominant_playstyle()
+    focus = preferences.gamer_focus.normalized()
+    top_focus = preferences.gamer_focus.top(2)
 
-    # Score mission types
-    scored = []
-    for mission_type in role_missions:
-        mt = templates["mission_types"].get(mission_type, {})
-        score = 0
-        for theme in top_themes:
-            if theme in mt.get("preferred_by", []):
-                score += 2
-        if playstyle in mt.get("playstyle_fit", []):
-            score += 3
-        scored.append((mission_type, score))
+    prompt = f"""
+WORLD
+Name: {world.get('name', 'Unknown')}
+Setting: {world.get('setting', '')[:400]}
+Tone: {world.get('tone', '')}
 
-    scored.sort(key=lambda x: x[1], reverse=True)
-    chosen_type = scored[0][0] if scored else "investigation"
+FACTIONS (current standing)
+{_fmt_factions(world_state)}
 
-    moral = profile.get_moral_label()
-    law = profile.get_law_label()
+REGIONS (current tension)
+{_fmt_regions(world_state)}
 
-    prompt = f"""Generate a short RPG side mission for a player with this profile:
-- Playstyle: {playstyle}
-- Alignment: {moral}/{law}
-- Top themes: {", ".join(top_themes)}
-- Mission type: {chosen_type}
-- Mission giver role: {npc_role} (NPC id: {npc_id})
+PLAYER ARCHETYPE
+{archetype['name']}: {archetype['summary']}
+Motifs: {', '.join(archetype['motifs'])}
 
-World context:
-{world_context}
+PLAYER PROFILE (live — evolving throughout the game)
+Aggression:     {_fv(profile.aggression)}
+Morality:       {_fv(profile.morality)}
+Lawfulness:     {_fv(profile.lawfulness)}
+Empathy:        {_fv(profile.empathy)}
+Immersion:      {_fv(profile.immersion)}   (0=gamey, 1=deep roleplayer)
+Deliberateness: {_fv(profile.deliberateness)}
+Sociability:    {_fv(profile.sociability)}
+Deference:      {_fv(profile.deference)}
+Top themes:     {', '.join(profile.top_themes())}
 
-Return ONLY valid JSON:
-{{
-  "id": "mission_{npc_id}_{chosen_type}",
-  "title": "short evocative title",
-  "description": "2-3 sentence description written to the player",
-  "type": "{chosen_type}",
-  "giver_npc": "{npc_id}",
-  "objective": "clear one-sentence goal",
-  "reward_hint": "vague hint at reward (not specific numbers)",
-  "complication": "one twist that makes this harder or morally interesting",
-  "xp_value": 50,
-  "is_campaign": false
-}}"""
+GAMER FOCUS
+Primary: {top_focus[0]} ({focus[top_focus[0]]:.0%})
+Secondary: {top_focus[1]} ({focus[top_focus[1]]:.0%})
+Full weights — story:{focus['story']:.0%} world:{focus['world']:.0%} missions:{focus['missions']:.0%} combat:{focus['combat']:.0%} social:{focus['social']:.0%}
 
-    response = await client.messages.create(
+PLAYER STATS (1-10 — what they're actually capable of)
+{_fmt_stats(stats, world)}
+
+MISSION HISTORY (last {len(recent_history)} completed)
+{_fmt_history(recent_history)}
+
+INSTRUCTIONS
+Generate {pool_size} missions.
+
+- Do NOT repeat mission types that dominate the recent history: {completed_types}
+- Vary locations — avoid repeating: {completed_locations}
+- Weight mission TYPES toward gamer focus:
+    combat focus → more combat/heist missions
+    story/social focus → more social/investigation missions
+    world/exploration focus → more exploration/investigation missions
+    missions focus → clear objectives, layered delivery/heist missions
+- The player's profile should be visible in WHY each mission was chosen.
+  A high-morality player gets missions where helping someone costs them something.
+  A high-aggression player gets missions where restraint is the harder path.
+  A chaotic player gets missions that let them destabilize entrenched power.
+- The archetype motifs ({', '.join(archetype['motifs'])}) should appear subtly
+  in at least two missions — as symbols, NPC names, or situation echoes.
+- Stats shape what approaches are genuinely viable:
+    combat ≥6 → describe combat approaches as effective, not just possible
+    stealth ≥6 → infiltration/ghost routes are a real option
+    persuasion ≥6 → social approaches can resolve what force cannot
+    intellect ≥6 → investigation angles, pattern recognition, information plays
+    endurance ≥6 → high-difficulty missions are within reach; attrition works
+    luck ≥6 → surface at least one approach that involves opportunism or chance
+  Low stats (≤3) in a key area mean that approach carries real risk — say so.
+- Match difficulty to stats: if combat=2, don't make all missions high-difficulty
+  combat encounters. Surface missions where the player's strengths apply.
+- IMMERSION depth shapes the writing, not the content:
+  High immersion (≥0.65) → descriptions and profile_fit read like a story beat.
+    Give moral weight to even simple tasks. Surface the human cost on both sides.
+    Approach descriptions carry texture — how it feels, not just what happens.
+  Low immersion (≤0.35) → keep it brisk and legible.
+    Short, direct descriptions. The player wants the objective, not the poetry.
+  Mid-range → brief story framing with clear mechanics.
+- Generate IDs as random 8-char hex strings.
+- Use only region and faction names that appear in the world above.
+""".strip()
+
+    response = _client.messages.create(
         model=MODEL,
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}]
+        max_tokens=6000,
+        thinking={"type": "enabled", "budget_tokens": 4000},
+        system=_SYSTEM,
+        messages=[{"role": "user", "content": prompt}],
     )
 
-    text = next((b.text for b in response.content if b.type == "text"), "{}")
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if "```" in text:
-            text = text.rsplit("```", 1)[0]
+    for block in response.content:
+        if block.type == "text":
+            missions = safe_parse(block.text, "mission generation")
+            for m in missions:
+                if "id" not in m or not m["id"]:
+                    m["id"] = uuid.uuid4().hex[:8]
+            return missions
 
-    try:
-        return json.loads(text)
-    except Exception:
-        return {
-            "id": f"mission_{npc_id}_fallback",
-            "title": "A Small Favor",
-            "description": "Someone needs help. They haven't said with what yet.",
-            "type": chosen_type,
-            "giver_npc": npc_id,
-            "objective": "Find out what's needed and decide whether to help.",
-            "reward_hint": "Gratitude, at least.",
-            "complication": "Nothing is ever as simple as it seems.",
-            "xp_value": 25,
-            "is_campaign": False
-        }
+    raise RuntimeError("Claude returned no text block during mission generation.")
 
-async def generate_campaign_mission(
-    act: int,
-    mission_number: int,
-    profile: PlayerProfile,
-    world_data: dict,
-    client: anthropic.AsyncAnthropic,
-) -> dict:
-    """Generate a main campaign mission tailored to the player and world."""
 
-    profile_summary = profile.get_summary_for_ai()
-    world_name = world_data.get("name", "The World")
-    conflict = world_data.get("central_conflict", "an ancient conflict")
-    hook = world_data.get("campaign_hook", "something pulls you forward")
-
-    prompt = f"""Generate Act {act + 1}, Mission {mission_number + 1} of the main campaign.
-
-World: {world_name}
-Central conflict: {conflict}
-Campaign hook: {hook}
-
-Player profile:
-{profile_summary}
-
-This is mission {mission_number + 1} of 3 in Act {act + 1}.
-{"First mission: introduction, establish stakes." if mission_number == 0 else ""}
-{"Second mission: complication, raise the cost." if mission_number == 1 else ""}
-{"Third mission: climax of this act, significant consequence." if mission_number == 2 else ""}
-
-Return ONLY valid JSON:
-{{
-  "id": "campaign_act{act}_m{mission_number}",
-  "title": "title",
-  "description": "2-3 sentences to the player",
-  "type": "mission type",
-  "objective": "clear goal",
-  "stakes": "what happens if they fail",
-  "reward_hint": "vague reward hint",
-  "xp_value": {150 + act * 50 + mission_number * 25},
-  "is_campaign": true,
-  "act": {act},
-  "mission_number": {mission_number}
-}}"""
-
-    response = await client.messages.create(
-        model=MODEL,
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}]
+def _fmt_factions(ws: WorldState) -> str:
+    if not ws.factions:
+        return "  (no factions seeded yet)"
+    return "\n".join(
+        f"  {name}: {f.label()} ({f.standing:+.0f})"
+        for name, f in ws.factions.items()
     )
 
-    text = next((b.text for b in response.content if b.type == "text"), "{}")
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if "```" in text:
-            text = text.rsplit("```", 1)[0]
 
-    try:
-        return json.loads(text)
-    except Exception:
-        return {
-            "id": f"campaign_act{act}_m{mission_number}",
-            "title": f"Act {act + 1}: The Path Ahead",
-            "description": "The road continues. What you find depends on what you carry.",
-            "type": "investigation",
-            "objective": "Advance the story.",
-            "stakes": "The world changes without you if you wait.",
-            "reward_hint": "Something you didn't expect.",
-            "xp_value": 150 + act * 50,
-            "is_campaign": True,
-            "act": act,
-            "mission_number": mission_number
-        }
+def _fmt_regions(ws: WorldState) -> str:
+    if not ws.regions:
+        return "  (no regions seeded yet)"
+    return "\n".join(
+        f"  {name}: tension {r.tension:.2f}"
+        for name, r in ws.regions.items()
+    )
+
+
+def _fmt_history(history: list[dict]) -> str:
+    if not history:
+        return "  None yet — this is the player's first mission pool."
+    lines = []
+    for m in history:
+        outcome = m.get("outcome", "unknown")
+        approach = m.get("approach_used", "unspecified")
+        lines.append(f"  [{m.get('type','?')}] {m.get('title','?')} — {outcome} via {approach}")
+    return "\n".join(lines)
+
+
+def _fv(val: float | None) -> str:
+    return f"{val:.2f}" if val is not None else "unknown"
+
+
+def _fmt_stats(stats: PlayerStats | None, world: dict) -> str:
+    if stats is None:
+        return "  (not yet initialized)"
+    flavors = world.get("stat_flavors", {})
+    lines = []
+    for key in STAT_KEYS:
+        level = getattr(stats, key)
+        display = flavors.get(key, key.title())
+        bar = "█" * level + "░" * (10 - level)
+        lines.append(f"  {display:15} {bar} {level}/10")
+    return "\n".join(lines)

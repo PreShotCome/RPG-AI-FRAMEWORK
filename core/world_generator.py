@@ -1,141 +1,184 @@
+"""
+World generator: takes a player's archetype + stated preferences and
+builds a complete, personalized game world.
+
+Inputs:
+  - archetype   (from core/archetype.py — who the player IS)
+  - preferences (from core/preferences.py — what world/game they WANT)
+  - profile     (the raw 9-axis profile — for fine-tuning faction/conflict design)
+
+Output: a world dict that Godot uses to populate the game.
+"""
+
 import json
-import random
+from core.json_utils import safe_parse
 import anthropic
-from pathlib import Path
-from config import MODEL
-from core.player_profile import PlayerProfile
+from config import ANTHROPIC_API_KEY, MODEL
+from core.profile import PlayerProfile
+from core.preferences import WorldPreferences
+from core.creative_voice import WONDER_DIRECTIVE
 
-_training_world: dict | None = None
+_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-def _load_training_world() -> dict:
-    global _training_world
-    if _training_world is None:
-        with open(Path("data/training_world.json")) as f:
-            _training_world = json.load(f)
-    return _training_world
+_SYSTEM = f"""
+You are a world architect for an AI-powered RPG. You generate complete,
+personalized game worlds that match both who the player is psychologically
+and what kind of game they want to play.
 
-def get_training_world() -> dict:
-    return _load_training_world()
+{WONDER_DIRECTIVE}
 
-def get_area_info(area_id: str, seed: int) -> dict:
-    world = _load_training_world()
-    for area in world["areas"]:
-        if area["id"] == area_id:
-            return area
-    return {}
+Return ONLY valid JSON — no explanation, no markdown fences.
 
-async def generate_real_world(profile: PlayerProfile, seed: int, client: anthropic.AsyncAnthropic) -> dict:
-    """Generate a full world based on player profile. Called at checkpoint."""
+The world must feel like it was made specifically for this player.
+Factions, conflicts, and power structures should reflect their moral/law alignment.
+Tone and atmosphere should match their stated world style exactly.
+Gameplay emphasis should foreground what they said they care about most.
 
-    rng = random.Random(seed)
-    world_id = f"world_{seed}"
+Schema:
+{
+  "name": "<evocative world name>",
+  "tagline": "<one sentence that captures the world's essence>",
+  "setting": "<2–3 paragraph description of the world — its history, current state, and feel>",
+  "tone": "<emotional register — e.g. 'gritty and desperate', 'mythic and awe-inspiring', 'paranoid noir'>",
 
-    profile_summary = profile.get_summary_for_ai()
-    moral = profile.get_moral_label()
-    law = profile.get_law_label()
-    themes = profile.get_top_themes(3)
-    playstyle = profile.get_dominant_playstyle()
-
-    prompt = f"""You are generating a unique fantasy RPG world for a specific player.
-
-PLAYER PROFILE:
-{profile_summary}
-
-WORLD GENERATION RULES:
-1. The world's central conflict reflects the player's moral/law alignment:
-   - Moral: {moral} (good=oppression/injustice to fight, evil=power to seize, neutral=balance/survival)
-   - Law: {law} (lawful=corrupt institutions, chaotic=dangerous freedom, neutral=fractured order)
-2. The primary gameplay hooks match the playstyle: {playstyle}
-3. The tone and aesthetic reflect these themes: {", ".join(themes)}
-4. Make everything feel personal to THIS player — not generic fantasy
-
-Generate a world in this EXACT JSON structure (no markdown, just JSON):
-{{
-  "name": "world name",
-  "tagline": "one evocative sentence",
-  "description": "2-3 paragraph world overview written for a player, not a narrator",
-  "central_conflict": "the core tension driving the world",
-  "tone": "the emotional register of this world",
   "regions": [
-    {{
-      "id": "region_id",
-      "name": "region name",
-      "description": "what it feels like to be here",
-      "dominant_faction": "who controls this",
-      "primary_hook": "why the player would care",
-      "unlocked_at_act": 0
-    }}
+    {
+      "name": "<region name>",
+      "description": "<what this place is and feels like>",
+      "hook": "<why the player would go here>",
+      "dominant_theme": "<one of: justice, revenge, power, mystery, survival, redemption, loyalty, freedom, knowledge, sacrifice>"
+    }
   ],
+
   "factions": [
-    {{
-      "id": "faction_id",
-      "name": "faction name",
-      "description": "what they want and how they operate",
-      "alignment": "good/evil/neutral",
-      "player_can_join": true
-    }}
+    {
+      "name": "<faction name>",
+      "description": "<who they are and what they want>",
+      "alignment": "<lawful|neutral|chaotic> <good|neutral|evil>",
+      "player_relationship": "<how this faction relates to a player with the given profile — ally, antagonist, complex>",
+      "hook": "<why the player would care about this faction>"
+    }
   ],
-  "world_secrets": [
-    "a secret the world holds that only exploration will reveal"
-  ],
-  "campaign_hook": "the inciting incident that pulls the player into the main story"
-}}
 
-Generate 3 regions and 3 factions. Make them feel organic, specific, and surprising — not generic."""
+  "central_conflict": {
+    "description": "<the main tension driving the world>",
+    "stakes": "<what happens if this conflict resolves one way or another>",
+    "player_role": "<how someone with this archetype naturally fits into this conflict>"
+  },
 
-    async with client.messages.stream(
+  "gameplay_emphasis": {
+    "primary": "<what the world rewards most — exploration, story choices, combat, social manipulation, etc.>",
+    "secondary": "<secondary emphasis>",
+    "de_emphasized": "<what is intentionally sparse — not every world needs everything>"
+  },
+
+  "starting_location": {
+    "name": "<name>",
+    "description": "<where the player begins, post-training-world>",
+    "immediate_hook": "<the first thing that pulls them in>"
+  },
+
+  "currency": {
+    "name": "<what this world calls its primary currency — specific to the setting>",
+    "symbol": "<1-3 char shorthand, e.g. 'G', 'cr', '₿', '¥'>",
+    "lore": "<one sentence: origin or cultural meaning of this currency>"
+  },
+
+  "stat_flavors": {
+    "combat":     "<world-specific display name for combat skill, e.g. 'Muscle', 'Warfare', 'Heat'>",
+    "stealth":    "<e.g. 'Shadow', 'Ghost', 'Quiet'>",
+    "persuasion": "<e.g. 'Silver Tongue', 'Influence', 'Pull'>",
+    "intellect":  "<e.g. 'Head', 'Lore', 'Circuit'>",
+    "endurance":  "<e.g. 'Grit', 'Vitality', 'Iron'>",
+    "luck":       "<e.g. 'Fortune', 'Fate', 'Chance'>"
+  }
+}
+
+Generate exactly 3 regions and exactly 3 factions.
+"""
+
+
+def generate(
+    archetype: dict,
+    preferences: WorldPreferences,
+    profile: PlayerProfile,
+) -> dict:
+    """
+    Generate a complete world. Uses extended thinking for coherence.
+    Returns the world dict.
+    """
+    focus = preferences.gamer_focus.normalized()
+    top_focus = preferences.gamer_focus.top(2)
+
+    prompt = f"""
+PLAYER ARCHETYPE
+Name: {archetype['name']}
+Summary: {archetype['summary']}
+World tone seed: {archetype['world_tone']}
+Central conflict seed: {archetype['central_conflict']}
+Motifs: {', '.join(archetype['motifs'])}
+
+PSYCHOLOGICAL PROFILE (silent — player does not know these scores)
+Aggression:     {_fmt(profile.aggression)}   (0=avoidant, 1=combative)
+Morality:       {_fmt(profile.morality)}   (0=selfish, 1=altruistic)
+Lawfulness:     {_fmt(profile.lawfulness)}   (0=chaotic, 1=lawful)
+Empathy:        {_fmt(profile.empathy)}   (0=blunt, 1=warm)
+Deliberateness: {_fmt(profile.deliberateness)}   (0=impulsive, 1=cautious)
+Sociability:    {_fmt(profile.sociability)}   (0=lone wolf, 1=leader)
+Deference:      {_fmt(profile.deference)}   (0=defiant, 1=deferential)
+Top themes:     {', '.join(profile.top_themes())}
+
+PLAYER-STATED PREFERENCES
+World style (their exact words): "{preferences.world_style}"
+
+What kind of gamer they are (normalized weights):
+  Story / narrative:    {focus['story']:.0%}
+  World / exploration:  {focus['world']:.0%}
+  Missions / quests:    {focus['missions']:.0%}
+  Combat / action:      {focus['combat']:.0%}
+  Social / roleplay:    {focus['social']:.0%}
+Primary interest: {top_focus[0]}
+Secondary interest: {top_focus[1]}
+
+INSTRUCTIONS
+- The world setting MUST match the player's stated style description above.
+  If they said "1920s prohibition city with secret magic", build that —
+  not a generic fantasy world with a noir coat of paint.
+- The factions and conflict should reflect their moral/law profile.
+  A lawful-good player needs oppression to fight from within.
+  A chaotic-evil player needs power structures to dismantle or exploit.
+- Weight the world's content toward what the player said they care about.
+  Story-heavy player → rich NPC backstories, moral dilemmas everywhere.
+  Combat player → territorial conflicts, dangerous traversal, skill gates.
+  World/exploration player → mysteries, hidden lore, geography that rewards curiosity.
+  Social player → political webs, NPCs with competing agendas, relationship consequences.
+  Mission player → clear faction bounties, visible quest hooks, layered objectives.
+- IMMERSION DEPTH ({_fmt(profile.immersion)} — 0=gamey, 1=deep roleplayer):
+  High immersion (≥0.65) → make the world feel lived-in and internally consistent.
+    Every faction has a believable history. Regions have texture beyond function.
+    The setting description should read like prose a novelist would write about a real place.
+    Currency has cultural meaning. Factions have internal contradictions.
+  Low immersion (≤0.35) → keep it clean and legible.
+    Clear allegiances, obvious hooks, practical descriptions over atmospheric ones.
+    Players want to know what to do, not what it smells like.
+  Mid-range → balance atmosphere with clarity.
+- The archetype motifs should appear as recurring symbols in the world.
+""".strip()
+
+    response = _client.messages.create(
         model=MODEL,
         max_tokens=4096,
-        thinking={"type": "adaptive"},
-        messages=[{"role": "user", "content": prompt}]
-    ) as stream:
-        text = await stream.get_final_text()
+        thinking={"type": "enabled", "budget_tokens": 5000},
+        system=_SYSTEM,
+        messages=[{"role": "user", "content": prompt}],
+    )
 
-    # Strip markdown fences if present
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if "```" in text:
-            text = text.rsplit("```", 1)[0]
+    for block in response.content:
+        if block.type == "text":
+            return safe_parse(block.text, "world generation")
 
-    try:
-        world_data = json.loads(text)
-    except Exception:
-        # Fallback world
-        world_data = _fallback_world(profile, seed)
+    raise RuntimeError("Claude returned no text block during world generation.")
 
-    world_data["world_id"] = world_id
-    world_data["seed"] = seed
-    world_data["generated_for_archetype"] = profile.archetype
-    return world_data
 
-def _fallback_world(profile: PlayerProfile, seed: int) -> dict:
-    """Minimal fallback if generation fails."""
-    return {
-        "name": "The Unnamed World",
-        "tagline": "A world built from your choices.",
-        "description": "A world that feels strangely familiar, as if it was made for you.",
-        "central_conflict": "Order against the chaos that freedom brings.",
-        "tone": "uncertain but full of possibility",
-        "regions": [
-            {
-                "id": "starting_region",
-                "name": "The First Roads",
-                "description": "Where your story truly begins.",
-                "dominant_faction": "The Keepers",
-                "primary_hook": "Someone knows your name. You've never met them.",
-                "unlocked_at_act": 0
-            }
-        ],
-        "factions": [
-            {
-                "id": "keepers",
-                "name": "The Keepers",
-                "description": "They maintain what exists. Change frightens them.",
-                "alignment": "neutral",
-                "player_can_join": True
-            }
-        ],
-        "world_secrets": ["The world was built, not born."],
-        "campaign_hook": "A message arrives — addressed to you — dated three years from now."
-    }
+def _fmt(val: float | None) -> str:
+    return f"{val:.2f}" if val is not None else "unknown"

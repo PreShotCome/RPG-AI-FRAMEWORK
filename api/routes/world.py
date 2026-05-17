@@ -1,116 +1,123 @@
 from fastapi import APIRouter, HTTPException
-from core.save_system import load_game
-from core.player_profile import PlayerProfile
-from core.world_generator import get_training_world, get_area_info
-from core.npc_system import get_npcs_in_area
-from config import TRAINING_WORLD_MAX_LEVEL
+from pydantic import BaseModel, field_validator
+from core import session as sessions
+from core.archetype import crystallize
+from core.preferences import WorldPreferences, GamerFocus, GAMER_FOCUS_KEYS
+from core.world_generator import generate
+from core.input_guard import check, validate_world_output
+from api.rate_limit import check_rate_limit, record_api_call
 
 router = APIRouter(prefix="/world", tags=["world"])
 
 
-@router.get("/info/{save_id}")
-async def world_info(save_id: str):
-    """Return the current world state for this save."""
-    save = load_game(save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
+class GamerFocusInput(BaseModel):
+    story: float = 0.0
+    world: float = 0.0
+    missions: float = 0.0
+    combat: float = 0.0
+    social: float = 0.0
 
-    profile = PlayerProfile.from_dict(save.profile)
-    is_training = profile.level <= TRAINING_WORLD_MAX_LEVEL and not profile.checkpoint_reached
+    @field_validator("story", "world", "missions", "combat", "social")
+    @classmethod
+    def non_negative(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("Focus weights must be non-negative")
+        return v
 
-    if is_training:
-        world = get_training_world()
-    elif save.world_state:
-        world = save.world_state
-    else:
-        raise HTTPException(status_code=404, detail="No world generated yet. Complete the checkpoint first.")
 
+class GenerateRequest(BaseModel):
+    # Free-text: "gritty 1920s prohibition city", "far-future space western", anything
+    world_style: str
+    gamer_focus: GamerFocusInput = GamerFocusInput()
+
+    @field_validator("world_style")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("world_style cannot be empty")
+        return v.strip()
+
+
+class WorldResponse(BaseModel):
+    session_id: str
+    archetype: dict
+    world: dict
+
+
+@router.post("/{session_id}/generate", response_model=WorldResponse)
+def generate_world(session_id: str, req: GenerateRequest):
+    """
+    The level-10 payoff. Takes the player's world style description and
+    gamer focus weights, crystallizes their profile into an archetype,
+    then generates a full personalized world.
+
+    Safe to call multiple times — each call regenerates the world.
+    The archetype is cached on the session after the first crystallization.
+    """
+    if not sessions.exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    check_rate_limit(session_id)
+    game_session = sessions.get(session_id)
+
+    if not game_session.profile.is_ready():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Profile not ready yet ({game_session.profile.observation_count} observations, need at least 10 with 6 axes filled).",
+        )
+
+    # Crystallize once; reuse on subsequent calls
+    if game_session.archetype is None:
+        try:
+            game_session.archetype = crystallize(game_session.profile)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    # Validate free-text input before it reaches the generator
+    safe_style = check(req.world_style, "world_style")
+
+    # Store preferences on the session
+    game_session.preferences = WorldPreferences(
+        world_style=safe_style,
+        gamer_focus=GamerFocus(
+            story=req.gamer_focus.story,
+            world=req.gamer_focus.world,
+            missions=req.gamer_focus.missions,
+            combat=req.gamer_focus.combat,
+            social=req.gamer_focus.social,
+        ),
+    )
+
+    record_api_call(session_id)
+    world = generate(
+        archetype=game_session.archetype,
+        preferences=game_session.preferences,
+        profile=game_session.profile,
+    )
+    try:
+        validate_world_output(world)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"World generation failed validation: {e}")
+    game_session.generated_world = world
+
+    return WorldResponse(
+        session_id=session_id,
+        archetype=game_session.archetype,
+        world=world,
+    )
+
+
+@router.get("/{session_id}")
+def get_world(session_id: str):
+    """Return the already-generated world for this session."""
+    if not sessions.exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    game_session = sessions.get(session_id)
+    if game_session.generated_world is None:
+        raise HTTPException(status_code=404, detail="World not generated yet")
     return {
-        "world": world,
-        "is_training": is_training,
-        "current_area": save.current_area_id,
-        "level": profile.level,
-        "checkpoint_reached": profile.checkpoint_reached,
-    }
-
-
-@router.get("/area/{save_id}/{area_id}")
-async def area_info(save_id: str, area_id: str):
-    """Return details about a specific area."""
-    save = load_game(save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
-
-    profile = PlayerProfile.from_dict(save.profile)
-    is_training = profile.level <= TRAINING_WORLD_MAX_LEVEL and not profile.checkpoint_reached
-
-    if is_training:
-        area = get_area_info(area_id, save.world_seed)
-        if not area:
-            raise HTTPException(status_code=404, detail=f"Area '{area_id}' not found")
-        return {"area": area, "is_training": True}
-
-    # Post-checkpoint: look in generated world regions
-    if save.world_state:
-        regions = save.world_state.get("regions", [])
-        region = next((r for r in regions if r.get("id") == area_id), None)
-        if region:
-            return {"area": region, "is_training": False}
-
-    raise HTTPException(status_code=404, detail=f"Area '{area_id}' not found")
-
-
-@router.get("/npcs/{save_id}/{area_id}")
-async def npcs_in_area(save_id: str, area_id: str):
-    """Return NPCs in a specific area."""
-    save = load_game(save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
-
-    profile = PlayerProfile.from_dict(save.profile)
-    is_training = profile.level <= TRAINING_WORLD_MAX_LEVEL and not profile.checkpoint_reached
-
-    if is_training:
-        npcs = get_npcs_in_area(area_id)
-        # Only expose safe fields to Godot (hide profiling_style, signature_questions)
-        safe_npcs = [
-            {
-                "id": npc.get("id"),
-                "name": npc.get("name"),
-                "role": npc.get("role"),
-                "appearance": npc.get("appearance"),
-                "greeting": npc.get("greeting"),
-                "area_id": npc.get("area_id"),
-            }
-            for npc in npcs
-        ]
-        return {"npcs": safe_npcs, "area_id": area_id}
-
-    # Post-checkpoint world can have dynamically placed NPCs
-    return {"npcs": [], "area_id": area_id, "note": "NPC placement in generated world coming soon."}
-
-
-@router.get("/profile/{save_id}")
-async def player_profile(save_id: str):
-    """Return the current player profile summary."""
-    save = load_game(save_id)
-    if not save:
-        raise HTTPException(status_code=404, detail="Save file not found")
-
-    profile = PlayerProfile.from_dict(save.profile)
-
-    return {
-        "level": profile.level,
-        "archetype": profile.archetype,
-        "archetype_description": profile.archetype_description,
-        "checkpoint_reached": profile.checkpoint_reached,
-        "dominant_playstyle": profile.get_dominant_playstyle(),
-        "moral_label": profile.get_moral_label(),
-        "law_label": profile.get_law_label(),
-        "dominant_voice": profile.get_dominant_voice(),
-        "social_role": profile.get_dominant_social_role(),
-        "authority_stance": profile.get_dominant_authority_stance(),
-        "top_themes": profile.get_top_themes(3),
-        "interactions_logged": len(profile.interaction_log),
-        "summary": profile.get_summary_for_ai(),
+        "session_id": session_id,
+        "archetype": game_session.archetype,
+        "preferences": game_session.preferences.to_dict(),
+        "world": game_session.generated_world,
     }
