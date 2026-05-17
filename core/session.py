@@ -70,6 +70,9 @@ class GameSession:
     inventory: PlayerInventory = field(default_factory=PlayerInventory)
     resources_initialized: bool = False
     difficulty: str = "regular"
+    onboarding_stage: str = "facility"   # "facility" | "options" | "complete"
+    facility_history: list[dict] = field(default_factory=list)
+    world_options: list[dict] = field(default_factory=list)
     world_name: str = ""
     in_game_day: int = 1
     last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

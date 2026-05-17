@@ -3,9 +3,11 @@ Crystallize a completed PlayerProfile into a named personal archetype.
 Called once at level 10 — the output seeds all downstream world generation.
 """
 
+import json
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL
 from core.profile import PlayerProfile
+from core.json_utils import safe_parse
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -27,12 +29,12 @@ Schema:
 """
 
 
-def crystallize(profile: PlayerProfile) -> dict:
+def crystallize(profile: PlayerProfile, force: bool = False) -> dict:
     """
     Takes a completed profile and returns the archetype dict.
-    Raises ValueError if the profile isn't ready yet.
+    Raises ValueError if the profile isn't ready yet (unless force=True).
     """
-    if not profile.is_ready():
+    if not force and not profile.is_ready():
         raise ValueError("Profile has insufficient observations to crystallize.")
 
     profile_summary = f"""
@@ -58,8 +60,6 @@ Observations:   {profile.observation_count}
 
     for block in response.content:
         if block.type == "text":
-            import json
-from core.json_utils import safe_parse
             return safe_parse(block.text, "archetype crystallization")
 
     raise RuntimeError("Claude returned no text block for archetype crystallization.")
