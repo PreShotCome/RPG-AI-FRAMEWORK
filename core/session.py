@@ -57,6 +57,7 @@ class GameSession:
     npc_registry: dict[str, dict] = field(default_factory=dict)
     active_events: list[dict] = field(default_factory=list)
     event_log: list[dict] = field(default_factory=list)
+    lore_discovered: list[dict] = field(default_factory=list)
     difficulty: str = "regular"
     world_name: str = ""
     in_game_day: int = 1
@@ -84,6 +85,7 @@ class GameSession:
             "npc_registry": self.npc_registry,
             "active_events": self.active_events,
             "event_log": self.event_log,
+            "lore_discovered": self.lore_discovered,
             "difficulty": self.difficulty,
             "world_name": self.world_name,
             "in_game_day": self.in_game_day,
@@ -106,6 +108,7 @@ class GameSession:
         session.npc_registry = data.get("npc_registry", {})
         session.active_events = data.get("active_events", [])
         session.event_log = data.get("event_log", [])
+        session.lore_discovered = data.get("lore_discovered", [])
         session.difficulty = data.get("difficulty", "regular")
         session.world_name = data.get("world_name", "")
         session.in_game_day = data.get("in_game_day", 1)
