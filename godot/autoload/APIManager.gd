@@ -36,42 +36,42 @@ func _request(method: int, endpoint: String, body: Dictionary = {}) -> Variant:
 	return JSON.parse_string(raw)
 
 
-func _get(endpoint: String) -> Variant:
+func _api_get(endpoint: String) -> Variant:
 	return await _request(HTTPClient.METHOD_GET, endpoint)
 
 
-func _post(endpoint: String, body: Dictionary = {}) -> Variant:
+func _api_post(endpoint: String, body: Dictionary = {}) -> Variant:
 	return await _request(HTTPClient.METHOD_POST, endpoint, body)
 
 
 # ── Onboarding ────────────────────────────────────────────────────────────────
 
 func onboarding_start() -> Variant:
-	return await _post("/onboarding/start")
+	return await _api_post("/onboarding/start")
 
 
 func onboarding_respond(session_id: String, message: String) -> Variant:
-	return await _post("/onboarding/%s/respond" % session_id, {"message": message})
+	return await _api_post("/onboarding/%s/respond" % session_id, {"message": message})
 
 
 func onboarding_generate_options(session_id: String) -> Variant:
-	return await _post("/onboarding/%s/generate-options" % session_id)
+	return await _api_post("/onboarding/%s/generate-options" % session_id)
 
 
 func onboarding_choose(session_id: String, choice: String) -> Variant:
-	return await _post("/onboarding/%s/choose" % session_id, {"choice": choice})
+	return await _api_post("/onboarding/%s/choose" % session_id, {"choice": choice})
 
 
 # ── World ─────────────────────────────────────────────────────────────────────
 
 func get_world(session_id: String) -> Variant:
-	return await _get("/world/%s" % session_id)
+	return await _api_get("/world/%s" % session_id)
 
 
 # ── Missions ──────────────────────────────────────────────────────────────────
 
 func generate_missions(session_id: String, pool_size: int = 4) -> Variant:
-	return await _post("/missions/%s/generate" % session_id, {"pool_size": pool_size})
+	return await _api_post("/missions/%s/generate" % session_id, {"pool_size": pool_size})
 
 
 func complete_mission(session_id: String, mission_id: String, outcome: String, approach: String, notes: String = "") -> Variant:
@@ -82,11 +82,11 @@ func complete_mission(session_id: String, mission_id: String, outcome: String, a
 	}
 	if not notes.is_empty():
 		body["notes"] = notes
-	return await _post("/missions/%s/complete" % session_id, body)
+	return await _api_post("/missions/%s/complete" % session_id, body)
 
 
 func get_missions(session_id: String) -> Variant:
-	return await _get("/missions/%s" % session_id)
+	return await _api_get("/missions/%s" % session_id)
 
 
 # ── NPCs ──────────────────────────────────────────────────────────────────────
@@ -97,28 +97,28 @@ func spawn_npc(session_id: String, role: String, faction: String = "independent"
 		body["region"] = region
 	if not context_hint.is_empty():
 		body["context_hint"] = context_hint
-	return await _post("/npcs/%s/spawn" % session_id, body)
+	return await _api_post("/npcs/%s/spawn" % session_id, body)
 
 
 func talk_to_npc(session_id: String, npc_id: String, message: String, update_profile: bool = true) -> Variant:
-	return await _post("/npcs/%s/%s/talk" % [session_id, npc_id], {
+	return await _api_post("/npcs/%s/%s/talk" % [session_id, npc_id], {
 		"message": message,
 		"update_profile": update_profile,
 	})
 
 
 func get_npcs(session_id: String) -> Variant:
-	return await _get("/npcs/%s" % session_id)
+	return await _api_get("/npcs/%s" % session_id)
 
 
 # ── Events ────────────────────────────────────────────────────────────────────
 
 func tick_events(session_id: String) -> Variant:
-	return await _post("/events/%s/tick" % session_id)
+	return await _api_post("/events/%s/tick" % session_id)
 
 
 func respond_to_event(session_id: String, event_id: String, option_id: String, approach: String) -> Variant:
-	return await _post("/events/%s/respond" % session_id, {
+	return await _api_post("/events/%s/respond" % session_id, {
 		"event_id": event_id,
 		"option_id": option_id,
 		"approach": approach,
@@ -126,7 +126,7 @@ func respond_to_event(session_id: String, event_id: String, option_id: String, a
 
 
 func get_events(session_id: String) -> Variant:
-	return await _get("/events/%s" % session_id)
+	return await _api_get("/events/%s" % session_id)
 
 
 # ── Lore ──────────────────────────────────────────────────────────────────────
@@ -137,51 +137,51 @@ func discover_lore(session_id: String, trigger: String, context: String, region:
 		body["region"] = region
 	if not faction.is_empty():
 		body["faction"] = faction
-	return await _post("/lore/%s/discover" % session_id, body)
+	return await _api_post("/lore/%s/discover" % session_id, body)
 
 
 func get_lore(session_id: String) -> Variant:
-	return await _get("/lore/%s" % session_id)
+	return await _api_get("/lore/%s" % session_id)
 
 
 # ── Resources ─────────────────────────────────────────────────────────────────
 
 func get_resources(session_id: String) -> Variant:
-	return await _get("/resources/%s" % session_id)
+	return await _api_get("/resources/%s" % session_id)
 
 
 # ── Mirror ────────────────────────────────────────────────────────────────────
 
 func generate_mirror(session_id: String) -> Variant:
-	return await _post("/mirror/%s" % session_id)
+	return await _api_post("/mirror/%s" % session_id)
 
 
 func get_latest_mirror(session_id: String) -> Variant:
-	return await _get("/mirror/%s/latest" % session_id)
+	return await _api_get("/mirror/%s/latest" % session_id)
 
 
 # ── Saves ─────────────────────────────────────────────────────────────────────
 
 func save_game(session_id: String, slot: String) -> Variant:
-	return await _post("/saves/%s/save" % session_id, {"slot": slot})
+	return await _api_post("/saves/%s/save" % session_id, {"slot": slot})
 
 
 func load_game(session_id: String, slot: String) -> Variant:
-	return await _post("/saves/%s/load" % session_id, {"slot": slot})
+	return await _api_post("/saves/%s/load" % session_id, {"slot": slot})
 
 
 func advance_day(session_id: String) -> Variant:
-	return await _post("/saves/%s/advance-day" % session_id)
+	return await _api_post("/saves/%s/advance-day" % session_id)
 
 
 # ── Profile ───────────────────────────────────────────────────────────────────
 
 func get_profile(session_id: String) -> Variant:
-	return await _get("/profile/%s" % session_id)
+	return await _api_get("/profile/%s" % session_id)
 
 
 func reset_profile(session_id: String, method: String) -> Variant:
-	return await _post("/profile/%s/reset" % session_id, {
+	return await _api_post("/profile/%s/reset" % session_id, {
 		"method": method,
 		"confirmed": true,
 	})
