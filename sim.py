@@ -110,18 +110,14 @@ def run_onboarding() -> str:
     section("Choose Your World")
     for i, w in enumerate(worlds):
         label = ["A", "B"][i]
-        wd = w.get("world", {})
-        print(f"\n  ── WORLD {label} ──")
-        print(f"  {wd.get('name', '?')}")
-        wrap(wd.get("description", ""), indent=4)
-
-        arch = w.get("archetype", {})
-        if arch:
-            print(f"\n  Archetype: {arch.get('name','?')}  |  {arch.get('tagline','')}")
-
-        starter = w.get("starting_context", {})
-        if starter:
-            print(f"\n  Opening: {starter.get('opening_scene', '')[:120]}…")
+        print(f"\n  ── WORLD {label} ── {w.get('label', '')}")
+        print(f"  {w.get('name', '?')}")
+        if w.get("tagline"):
+            print(f"  \"{w['tagline']}\"")
+        if w.get("tone"):
+            print(f"  Tone: {w['tone']}")
+        if w.get("setting_preview"):
+            wrap(w["setting_preview"], indent=4)
 
     choice_idx = choose(["World A", "World B", "Let me think about it (re-read)"])
     if choice_idx == 2:
