@@ -75,6 +75,11 @@ class GameSession:
     world_options: list[dict] = field(default_factory=list)
     world_name: str = ""
     in_game_day: int = 1
+    current_scene: dict = field(default_factory=dict)
+    scene_history: list = field(default_factory=list)
+    active_mission_id: Optional[str] = None
+    mission_scene_logs: dict = field(default_factory=dict)
+    journal_npcs: list = field(default_factory=list)
     last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     api_calls_this_window: int = 0
     rate_window_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -131,6 +136,11 @@ class GameSession:
             "difficulty": self.difficulty,
             "world_name": self.world_name,
             "in_game_day": self.in_game_day,
+            "current_scene": self.current_scene,
+            "scene_history": self.scene_history,
+            "active_mission_id": self.active_mission_id,
+            "mission_scene_logs": self.mission_scene_logs,
+            "journal_npcs": self.journal_npcs,
         }
 
     @classmethod
@@ -159,6 +169,11 @@ class GameSession:
         session.difficulty = data.get("difficulty", "regular")
         session.world_name = data.get("world_name", "")
         session.in_game_day = data.get("in_game_day", 1)
+        session.current_scene = data.get("current_scene", {})
+        session.scene_history = data.get("scene_history", [])
+        session.active_mission_id = data.get("active_mission_id")
+        session.mission_scene_logs = data.get("mission_scene_logs", {})
+        session.journal_npcs = data.get("journal_npcs", [])
         return session
 
 
