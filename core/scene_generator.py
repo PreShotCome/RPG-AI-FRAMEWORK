@@ -234,7 +234,7 @@ def resolve_action(
 
         resp = _client.messages.create(
             model=MODEL,
-            max_tokens=900,
+            max_tokens=1400,
             system=_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )

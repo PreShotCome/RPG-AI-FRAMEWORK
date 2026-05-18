@@ -681,6 +681,7 @@ function dmLog(text, cls='') {
 }
 
 async function typeDM(el, text) {
+  if (!text) { el.classList.remove('typing'); return; }
   return new Promise(res => {
     let i = 0;
     const c = document.getElementById('game-log');
@@ -774,8 +775,9 @@ async function doAct() {
   try {
     const d = await api('POST', `/scenes/${G.sid}/act`, { action });
 
+    const narrative = d.narrative || '…';
     const el = dmLog();
-    await typeDM(el, d.narrative);
+    await typeDM(el, narrative);
 
     if (d.mission_outcome) {
       const result = d.mission_outcome.result;
@@ -817,6 +819,7 @@ async function doAct() {
 
     setActing(false);
   } catch(e) {
+    log(`[Act error] ${e.message}`, 'sys');
     toast(`Error: ${e.message}`, 'var(--red)');
     setActing(false);
   }
