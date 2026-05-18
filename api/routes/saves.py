@@ -5,7 +5,7 @@ from core import session as sessions
 from core.session import DIFFICULTIES, LOAD_PERMISSIONS, SAVE_PERMISSIONS, GameSession
 from core import save_manager
 
-router = APIRouter(prefix="/save", tags=["saves"])
+router = APIRouter(prefix="/saves", tags=["saves"])
 
 MANUAL_SLOTS = {"slot_1", "slot_2", "slot_3"}
 ALL_SLOTS = {"auto", "glitch", "slot_1", "slot_2", "slot_3", "day_start"}
@@ -150,7 +150,7 @@ def load(session_id: str, req: LoadRequest):
     }
 
 
-@router.post("/{session_id}/advance_day")
+@router.post("/{session_id}/advance-day")
 def advance_day(session_id: str):
     """
     Godot calls this when an in-game day ends.
