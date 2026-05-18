@@ -835,7 +835,7 @@ async function startMission(mid) {
   G.activeMissionTitle = m.title;
   updateMissionBar();
   try {
-    const d = await api('POST', `/scenes/${G.sid}/mission/${mid}/start`);
+    const d = await api('POST', `/scenes/${G.sid}/start-mission/${mid}`);
     G.currentScene = d.scene;
     const el = dmLog();
     await typeDM(el, d.scene.description);

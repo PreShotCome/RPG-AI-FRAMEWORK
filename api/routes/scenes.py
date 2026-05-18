@@ -193,7 +193,7 @@ def act(session_id: str, req: ActRequest):
     }
 
 
-@router.post("/{session_id}/mission/{mission_id}/start")
+@router.post("/{session_id}/start-mission/{mission_id}")
 def start_mission(session_id: str, mission_id: str):
     if not sessions.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")

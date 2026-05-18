@@ -1,7 +1,10 @@
 import json
 import re
+import logging
 import anthropic
 from config import ANTHROPIC_API_KEY
+
+logger = logging.getLogger(__name__)
 
 MODEL = "claude-opus-4-7"
 
@@ -132,8 +135,13 @@ def generate_scene(
             system=_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
-        return _parse_json(resp.content[0].text)
-    except Exception:
+        result = _parse_json(resp.content[0].text)
+        # Ensure suggestions is always a non-empty list
+        if not isinstance(result.get("suggestions"), list) or not result["suggestions"]:
+            result["suggestions"] = ["Look around", "Listen carefully", "Move forward", "Check your surroundings"]
+        return result
+    except Exception as e:
+        logger.error("generate_scene failed: %s", e, exc_info=True)
         return None
 
 
@@ -230,6 +238,13 @@ def resolve_action(
             system=_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
-        return _parse_json(resp.content[0].text)
-    except Exception:
+        result = _parse_json(resp.content[0].text)
+        # Ensure next_scene.suggestions is always a list
+        ns = result.get("next_scene")
+        if isinstance(ns, dict):
+            if not isinstance(ns.get("suggestions"), list) or not ns["suggestions"]:
+                ns["suggestions"] = ["Look around", "Listen carefully", "Move forward", "Check your surroundings"]
+        return result
+    except Exception as e:
+        logger.error("resolve_action failed: %s", e, exc_info=True)
         return None
