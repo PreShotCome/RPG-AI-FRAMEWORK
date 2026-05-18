@@ -532,17 +532,17 @@ function typeBubble(el, text, speed=14) {
     tick();
   });
 }
-function addMsg(speaker, text, isUser, type) {
+function addMsg(speaker, text, isUser) {
   const c = document.getElementById('chat-log');
   const row = document.createElement('div');
   row.className = 'msg-row' + (isUser ? ' user' : '');
-  row.innerHTML = `<div class="msg-speaker">${esc(speaker)}</div><div class="msg-bubble"></div>`;
+  row.innerHTML = `<div class="msg-speaker">${esc(speaker)}</div><div class="msg-bubble">${text ? esc(text) : ''}</div>`;
   c.appendChild(row);
   c.scrollTop = c.scrollHeight;
   return row.querySelector('.msg-bubble');
 }
 async function archSay(text) {
-  const b = addMsg('Architect', '', false);
+  const b = addMsg('Architect', '', false);  // empty — typeBubble fills it
   await typeBubble(b, text, 15);
 }
 function youSay(text) { addMsg('You', text, true); }
